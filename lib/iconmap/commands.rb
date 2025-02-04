@@ -1,32 +1,32 @@
 require "thor"
-require "importmap/packager"
-require "importmap/npm"
+require_relative "packager"
+require_relative "npm"
 
-class Importmap::Commands < Thor
+class Iconmap::Commands < Thor
   include Thor::Actions
 
   def self.exit_on_failure?
     false
   end
 
-  desc "pin [*PACKAGES]", "Pin new packages"
+  desc "pin [*PACKAGES]", "Pin new icons"
   option :env, type: :string, aliases: :e, default: "production"
   option :from, type: :string, aliases: :f, default: "jspm"
   def pin(*packages)
     if imports = packager.import(*packages, env: options[:env], from: options[:from])
       imports.each do |package, url|
-        puts %(Pinning "#{package}" to #{packager.vendor_path}/#{package}.js via download from #{url})
+        puts %(Pinning "#{package}" to #{packager.vendor_path}/#{package} via download from #{url})
         packager.download(package, url)
         pin = packager.vendored_pin_for(package, url)
 
         if packager.packaged?(package)
-          gsub_file("config/importmap.rb", /^pin "#{package}".*$/, pin, verbose: false)
+          gsub_file("config/iconmap.rb", /^pin "#{package}".*$/, pin, verbose: false)
         else
-          append_to_file("config/importmap.rb", "#{pin}\n", verbose: false)
+          append_to_file("config/iconmap.rb", "#{pin}\n", verbose: false)
         end
       end
     else
-      puts "Couldn't find any packages in #{packages.inspect} on #{options[:from]}"
+      puts "Couldn't find any icons in #{packages.inspect} on #{options[:from]}"
     end
   end
 
@@ -56,7 +56,7 @@ class Importmap::Commands < Thor
 
     if imports = packager.import(*packages, env: options[:env], from: options[:from])
       imports.each do |package, url|
-        puts %(Downloading "#{package}" to #{packager.vendor_path}/#{package}.js from #{url})
+        puts %(Downloading "#{package}" to #{packager.vendor_path}/#{package} from #{url})
         packager.download(package, url)
       end
     else
@@ -64,10 +64,10 @@ class Importmap::Commands < Thor
     end
   end
 
-  desc "json", "Show the full importmap in json"
+  desc "json", "Show the full iconmap in json"
   def json
     require Rails.root.join("config/environment")
-    puts Rails.application.importmap.to_json(resolver: ActionController::Base.helpers)
+    puts Rails.application.iconmap.to_json(resolver: ActionController::Base.helpers)
   end
 
   desc "audit", "Run a security audit"
@@ -94,40 +94,40 @@ class Importmap::Commands < Thor
   desc "outdated", "Check for outdated packages"
   def outdated
     if (outdated_packages = npm.outdated_packages).any?
-      table = [["Package", "Current", "Latest"]]
+      table = [["Icon", "Current", "Latest"]]
       outdated_packages.each { |p| table << [p.name, p.current_version, p.latest_version || p.error] }
 
       puts_table(table)
-      packages = 'package'.pluralize(outdated_packages.size)
+      packages = 'icon'.pluralize(outdated_packages.size)
       puts "  #{outdated_packages.size} outdated #{packages} found"
 
       exit 1
     else
-      puts "No outdated packages found"
+      puts "No outdated icons found"
     end
   end
 
-  desc "update", "Update outdated package pins"
+  desc "update", "Update outdated icon pins"
   def update
     if (outdated_packages = npm.outdated_packages).any?
       pin(*outdated_packages.map(&:name))
     else
-      puts "No outdated packages found"
+      puts "No outdated icons found"
     end
   end
 
-  desc "packages", "Print out packages with version numbers"
+  desc "packages", "Print out icons with version numbers"
   def packages
     puts npm.packages_with_versions.map { |x| x.join(' ') }
   end
 
   private
     def packager
-      @packager ||= Importmap::Packager.new
+      @packager ||= Iconmap::Packager.new
     end
 
     def npm
-      @npm ||= Importmap::Npm.new
+      @npm ||= Iconmap::Npm.new
     end
 
     def remove_line_from_file(path, pattern)
@@ -156,4 +156,4 @@ class Importmap::Commands < Thor
     end
 end
 
-Importmap::Commands.start(ARGV)
+Iconmap::Commands.start(ARGV)

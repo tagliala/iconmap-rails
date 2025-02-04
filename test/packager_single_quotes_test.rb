@@ -1,11 +1,11 @@
 require "test_helper"
-require "importmap/packager"
+require "iconmap/packager"
 
-class Importmap::PackagerSingleQuotesTest < ActiveSupport::TestCase
+class Iconmap::PackagerSingleQuotesTest < ActiveSupport::TestCase
   setup do
-    @single_quote_config_name = Rails.root.join("config/importmap_with_single_quotes.rb")
-    File.write(@single_quote_config_name, File.read(Rails.root.join("config/importmap.rb")).tr('"', "'"))
-    @packager = Importmap::Packager.new(@single_quote_config_name)
+    @single_quote_config_name = Rails.root.join("config/iconmap_with_single_quotes.rb")
+    File.write(@single_quote_config_name, File.read(Rails.root.join("config/iconmap.rb")).tr('"', "'"))
+    @packager = Iconmap::Packager.new(@single_quote_config_name)
   end
 
   teardown { File.delete(@single_quote_config_name) }

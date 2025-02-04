@@ -1,9 +1,9 @@
 require "test_helper"
-require "importmap/npm"
+require "iconmap/npm"
 require "minitest/mock"
 
-class Importmap::NpmTest < ActiveSupport::TestCase
-  setup { @npm = Importmap::Npm.new(file_fixture("outdated_import_map.rb")) }
+class Iconmap::NpmTest < ActiveSupport::TestCase
+  setup { @npm = Iconmap::Npm.new(file_fixture("outdated_icon_map.rb")) }
 
   test "successful outdated packages with mock" do
     response = { "dist-tags" => { "latest" => '2.3.0' } }.to_json
@@ -19,7 +19,7 @@ class Importmap::NpmTest < ActiveSupport::TestCase
   end
 
   test "successful outdated packages using single-quotes with mock" do
-    npm = Importmap::Npm.new(file_fixture("single_quote_outdated_import_map.rb"))
+    npm = Iconmap::Npm.new(file_fixture("single_quote_outdated_icon_map.rb"))
     response = { "dist-tags" => { "latest" => '2.3.0' } }.to_json
 
     npm.stub(:get_json, response) do
@@ -33,7 +33,7 @@ class Importmap::NpmTest < ActiveSupport::TestCase
   end
 
   test "successful outdated packages using single-quotes and without CDN with mock" do
-    npm = Importmap::Npm.new(file_fixture("single_quote_outdated_import_map_without_cdn.rb"))
+    npm = Iconmap::Npm.new(file_fixture("single_quote_outdated_icon_map_without_cdn.rb"))
     response = { "dist-tags" => { "latest" => '2.3.0' } }.to_json
 
     npm.stub(:get_json, response) do
@@ -61,7 +61,7 @@ class Importmap::NpmTest < ActiveSupport::TestCase
 
   test "failed outdated packages request with mock" do
     Net::HTTP.stub(:start, proc { raise "Unexpected Error" }) do
-      assert_raises(Importmap::Npm::HTTPError) do
+      assert_raises(Iconmap::Npm::HTTPError) do
         @npm.outdated_packages
       end
     end
@@ -89,7 +89,7 @@ class Importmap::NpmTest < ActiveSupport::TestCase
 
   test "failed vulnerable packages request with mock" do
     Net::HTTP.stub(:post, proc { raise "Unexpected Error" }) do
-      assert_raises(Importmap::Npm::HTTPError) do
+      assert_raises(Iconmap::Npm::HTTPError) do
         @npm.vulnerable_packages
       end
     end

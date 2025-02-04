@@ -1,5 +1,5 @@
-namespace :importmap do
-  desc "Setup Importmap for the app"
+namespace :iconmap do
+  desc "Setup Iconmap for the app"
   task :install do
     previous_location = ENV["LOCATION"]
     ENV["LOCATION"] = File.expand_path("../install/install.rb", __dir__)

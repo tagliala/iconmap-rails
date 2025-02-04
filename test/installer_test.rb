@@ -6,28 +6,17 @@ class InstallerTest < ActiveSupport::TestCase
 
   test "installer task" do
     with_new_rails_app do
-      run_command("bin/rails", "importmap:install")
+      run_command("bin/rails", "iconmap:install")
 
-      assert_match %r{<%= javascript_importmap_tags %>.*</head>}m, File.read("app/views/layouts/application.html.erb")
-      assert_match "// ", File.read("app/javascript/application.js")
-      assert_equal 0, File.size("vendor/javascript/.keep")
-      assert_equal File.read("#{__dir__}/../lib/install/config/importmap.rb"), File.read("config/importmap.rb")
-      assert_equal File.read("#{__dir__}/../lib/install/bin/importmap"), File.read("bin/importmap")
-      assert_equal 0700, File.stat("bin/importmap").mode & 0700
+      assert_equal 0, File.size("vendor/icons/.keep")
+      assert_equal File.read("#{__dir__}/../lib/install/config/iconmap.rb"), File.read("config/iconmap.rb")
+      assert_equal File.read("#{__dir__}/../lib/install/bin/iconmap"), File.read("bin/iconmap")
+      assert_equal 0700, File.stat("bin/iconmap").mode & 0700
 
       if defined?(Sprockets)
         manifest = File.read("app/assets/config/manifest.js")
-        assert_match "//= link_tree ../../javascript .js", manifest
-        assert_match "//= link_tree ../../../vendor/javascript .js", manifest
+        assert_match "//= link_tree ../../../vendor/icons .svg", manifest
       end
-    end
-  end
-
-  test "installer task when no application layout" do
-    with_new_rails_app do
-      FileUtils.rm("app/views/layouts/application.html.erb")
-      out, err = run_command("bin/rails", "importmap:install")
-      assert_match "Add <%= javascript_importmap_tags %> within the <head> tag", out
     end
   end
 
@@ -37,7 +26,7 @@ class InstallerTest < ActiveSupport::TestCase
       rakefile = "puts \"I've been logged twice!\" \n" + rakefile
       File.write("#{app_dir}/Rakefile", rakefile)
 
-      out, err = run_command("bin/rails", "importmap:install")
+      out, err = run_command("bin/rails", "iconmap:install")
 
       assert_equal 1, out.scan(/I've been logged twice!/).size
     end
@@ -45,10 +34,6 @@ class InstallerTest < ActiveSupport::TestCase
 
   private
     def with_new_rails_app
-      # Unset testing dummy app so app generator doesn't get confused in Rails 6.1 and 7.0.
-      Rails.app_class = nil
-      Rails.application = nil
-
       Dir.mktmpdir do |tmpdir|
         app_dir = "#{tmpdir}/my_cool_app"
 
@@ -56,8 +41,8 @@ class InstallerTest < ActiveSupport::TestCase
 
         Dir.chdir(app_dir) do
           gemfile = File.read("Gemfile")
-          gemfile.gsub!(/^gem "importmap-rails".*/, "")
-          gemfile << %(gem "importmap-rails", path: #{File.expand_path("..", __dir__).inspect}\n)
+          gemfile.gsub!(/^gem "iconmap-rails".*/, "")
+          gemfile << %(gem "iconmap-rails", path: #{File.expand_path("..", __dir__).inspect}\n)
           if Rails::VERSION::PRE == "alpha"
             gemfile.gsub!(/^gem "rails".*/, "")
             gemfile << %(gem "rails", path: #{Gem.loaded_specs["rails"].full_gem_path.inspect}\n)

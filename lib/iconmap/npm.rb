@@ -2,15 +2,15 @@ require "net/http"
 require "uri"
 require "json"
 
-class Importmap::Npm
+class Iconmap::Npm
   Error     = Class.new(StandardError)
   HTTPError = Class.new(Error)
 
   singleton_class.attr_accessor :base_uri
   self.base_uri = URI("https://registry.npmjs.org")
 
-  def initialize(importmap_path = "config/importmap.rb")
-    @importmap_path = Pathname.new(importmap_path)
+  def initialize(iconmap_path = "config/iconmap.rb")
+    @iconmap_path = Pathname.new(iconmap_path)
   end
 
   def outdated_packages
@@ -18,7 +18,7 @@ class Importmap::Npm
       outdated_package = OutdatedPackage.new(name: package,
                                              current_version: current_version)
 
-      if !(response = get_package(package))
+      if !(response = get_package(normalize_package_name(package)))
         outdated_package.error = 'Response error'
       elsif (error = response['error'])
         outdated_package.error = error
@@ -48,18 +48,25 @@ class Importmap::Npm
     # We cannot use the name after "pin" because some dependencies are loaded from inside packages
     # Eg. pin "buffer", to: "https://ga.jspm.io/npm:@jspm/core@2.0.0-beta.19/nodelibs/browser/buffer.js"
 
-    importmap.scan(/^pin .*(?<=npm:|npm\/|skypack\.dev\/|unpkg\.com\/)(.*)(?=@\d+\.\d+\.\d+)@(\d+\.\d+\.\d+(?:[^\/\s["']]*)).*$/) |
-      importmap.scan(/^pin ["']([^["']]*)["'].* #.*@(\d+\.\d+\.\d+(?:[^\s]*)).*$/)
+    iconmap.scan(/^pin .*(?<=npm:|npm\/|skypack\.dev\/|unpkg\.com\/)(.*)(?=@\d+\.\d+\.\d+)@(\d+\.\d+\.\d+(?:[^\/\s["']]*)).*$/) |
+      iconmap.scan(/^pin ["']([^["']]*)["'].* #.*@(\d+\.\d+\.\d+(?:[^\s]*)).*$/)
   end
 
   private
     OutdatedPackage   = Struct.new(:name, :current_version, :latest_version, :error, keyword_init: true)
     VulnerablePackage = Struct.new(:name, :severity, :vulnerable_versions, :vulnerability, keyword_init: true)
 
+    # Normalize the package name (remove any trailing paths)
+    def normalize_package_name(name)
+      if name.start_with?('@')
+        name.split('/', 3)[0..1].join('/')
+      else
+        name.split('/', 2).first
+      end
+    end
 
-
-    def importmap
-      @importmap ||= File.read(@importmap_path)
+    def iconmap
+      @iconmap ||= File.read(@iconmap_path)
     end
 
     def get_package(package)
