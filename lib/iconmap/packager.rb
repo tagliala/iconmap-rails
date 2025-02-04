@@ -2,7 +2,7 @@ require "net/http"
 require "uri"
 require "json"
 
-class Importmap::Packager
+class Iconmap::Packager
   Error        = Class.new(StandardError)
   HTTPError    = Class.new(Error)
   ServiceError = Error.new(Error)
@@ -12,8 +12,8 @@ class Importmap::Packager
 
   attr_reader :vendor_path
 
-  def initialize(importmap_path = "config/importmap.rb", vendor_path: "vendor/javascript")
-    @importmap_path = Pathname.new(importmap_path)
+  def initialize(iconmap_path = "config/iconmap.rb", vendor_path: "vendor/icons")
+    @iconmap_path = Pathname.new(iconmap_path)
     @vendor_path    = Pathname.new(vendor_path)
   end
 
@@ -40,7 +40,7 @@ class Importmap::Packager
     filename = package_filename(package)
     version  = extract_package_version_from(url)
 
-    if "#{package}.js" == filename
+    if "#{package}" == filename
       %(pin "#{package}" # #{version})
     else
       %(pin "#{package}", to: "#{filename}" # #{version})
@@ -48,7 +48,7 @@ class Importmap::Packager
   end
 
   def packaged?(package)
-    importmap.match(/^pin ["']#{package}["'].*$/)
+    iconmap.match(/^pin ["']#{package}["'].*$/)
   end
 
   def download(package, url)
@@ -59,7 +59,7 @@ class Importmap::Packager
 
   def remove(package)
     remove_existing_package_file(package)
-    remove_package_from_importmap(package)
+    remove_package_from_iconmap(package)
   end
 
   private
@@ -91,8 +91,8 @@ class Importmap::Packager
       nil
     end
 
-    def importmap
-      @importmap ||= File.read(@importmap_path)
+    def iconmap
+      @iconmap ||= File.read(@iconmap_path)
     end
 
 
@@ -104,11 +104,11 @@ class Importmap::Packager
       FileUtils.rm_rf vendored_package_path(package)
     end
 
-    def remove_package_from_importmap(package)
-      all_lines = File.readlines(@importmap_path)
+    def remove_package_from_iconmap(package)
+      all_lines = File.readlines(@iconmap_path)
       with_lines_removed = all_lines.grep_v(/pin ["']#{package}["']/)
 
-      File.open(@importmap_path, "w") do |file|
+      File.open(@iconmap_path, "w") do |file|
         with_lines_removed.each { |line| file.write(line) }
       end
     end
@@ -125,7 +125,7 @@ class Importmap::Packager
 
     def save_vendored_package(package, url, source)
       File.open(vendored_package_path(package), "w+") do |vendored_package|
-        vendored_package.write "// #{package}#{extract_package_version_from(url)} downloaded from #{url}\n\n"
+        vendored_package.write "<!-- #{package}#{extract_package_version_from(url)} downloaded from #{url} -->\n\n"
 
         vendored_package.write remove_sourcemap_comment_from(source).force_encoding("UTF-8")
       end
@@ -140,7 +140,7 @@ class Importmap::Packager
     end
 
     def package_filename(package)
-      package.gsub("/", "--") + ".js"
+      package.gsub("/", "--")
     end
 
     def extract_package_version_from(url)

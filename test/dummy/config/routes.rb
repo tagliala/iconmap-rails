@@ -1,3 +1,3 @@
 Rails.application.routes.draw do
-  mount Importmap::Engine => "/importmap"
+  mount Iconmap::Engine => "/iconmap"
 end

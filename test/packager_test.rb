@@ -1,9 +1,9 @@
 require "test_helper"
-require "importmap/packager"
+require "iconmap/packager"
 require "minitest/mock"
 
-class Importmap::PackagerTest < ActiveSupport::TestCase
-  setup { @packager = Importmap::Packager.new(Rails.root.join("config/importmap.rb")) }
+class Iconmap::PackagerTest < ActiveSupport::TestCase
+  setup { @packager = Iconmap::Packager.new(Rails.root.join("config/iconmap.rb")) }
 
   test "successful import with mock" do
     response = Class.new do
@@ -36,7 +36,7 @@ class Importmap::PackagerTest < ActiveSupport::TestCase
 
   test "failed request with mock" do
     Net::HTTP.stub(:post, proc { raise "Unexpected Error" }) do
-      assert_raises(Importmap::Packager::HTTPError) do
+      assert_raises(Iconmap::Packager::HTTPError) do
         @packager.import("missing-package-that-doesnt-exist@17.0.2")
       end
     end

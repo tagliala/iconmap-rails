@@ -1,10 +1,10 @@
 require "test_helper"
-require "importmap/npm"
+require "iconmap/npm"
 
-class Importmap::NpmIntegrationTest < ActiveSupport::TestCase
+class Iconmap::NpmIntegrationTest < ActiveSupport::TestCase
   test "successful outdated packages against live service" do
-    file = file_fixture("outdated_import_map.rb")
-    npm = Importmap::Npm.new(file)
+    file = file_fixture("outdated_icon_map.rb")
+    npm = Iconmap::Npm.new(file)
 
     outdated_packages = npm.outdated_packages
 
@@ -15,22 +15,22 @@ class Importmap::NpmIntegrationTest < ActiveSupport::TestCase
   end
 
   test "failed outdated packages request against live bad domain" do
-    file = file_fixture("outdated_import_map.rb")
-    npm = Importmap::Npm.new(file)
+    file = file_fixture("outdated_icon_map.rb")
+    npm = Iconmap::Npm.new(file)
 
-    original_base_uri = Importmap::Npm.base_uri
-    Importmap::Npm.base_uri = URI("https://invalid.error")
+    original_base_uri = Iconmap::Npm.base_uri
+    Iconmap::Npm.base_uri = URI("https://invalid.error")
 
-    assert_raises(Importmap::Npm::HTTPError) do
+    assert_raises(Iconmap::Npm::HTTPError) do
       npm.outdated_packages
     end
   ensure
-    Importmap::Npm.base_uri = original_base_uri
+    Iconmap::Npm.base_uri = original_base_uri
   end
 
   test "successful vulnerable packages against live service" do
-    file = file_fixture("vulnerable_import_map.rb")
-    npm = Importmap::Npm.new(file)
+    file = file_fixture("vulnerable_icon_map.rb")
+    npm = Iconmap::Npm.new(file)
 
     vulnerable_packages = npm.vulnerable_packages
 
@@ -52,16 +52,16 @@ class Importmap::NpmIntegrationTest < ActiveSupport::TestCase
   end
 
   test "failed vulnerable packages request against live bad domain" do
-    file = file_fixture("vulnerable_import_map.rb")
-    npm = Importmap::Npm.new(file)
+    file = file_fixture("vulnerable_icon_map.rb")
+    npm = Iconmap::Npm.new(file)
 
-    original_base_uri = Importmap::Npm.base_uri
-    Importmap::Npm.base_uri = URI("https://invalid.error")
+    original_base_uri = Iconmap::Npm.base_uri
+    Iconmap::Npm.base_uri = URI("https://invalid.error")
 
-    assert_raises(Importmap::Npm::HTTPError) do
+    assert_raises(Iconmap::Npm::HTTPError) do
       npm.vulnerable_packages
     end
   ensure
-    Importmap::Npm.base_uri = original_base_uri
+    Iconmap::Npm.base_uri = original_base_uri
   end
 end

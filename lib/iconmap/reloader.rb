@@ -1,20 +1,20 @@
 require "active_support"
 require "active_support/core_ext/module/delegation"
 
-class Importmap::Reloader
+class Iconmap::Reloader
   delegate :execute_if_updated, :execute, :updated?, to: :updater
 
   def reload!
-    import_map_paths.each { |path| Rails.application.importmap.draw(path) }
+    icon_map_paths.each { |path| Rails.application.iconmap.draw(path) }
   end
 
   private
     def updater
-      @updater ||= config.file_watcher.new(import_map_paths) { reload! }
+      @updater ||= config.file_watcher.new(icon_map_paths) { reload! }
     end
 
-    def import_map_paths
-      config.importmap.paths
+    def icon_map_paths
+      config.iconmap.paths
     end
 
     def config

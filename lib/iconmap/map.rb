@@ -1,6 +1,6 @@
 require "pathname"
 
-class Importmap::Map
+class Iconmap::Map
   attr_reader :packages, :directories
 
   class InvalidFile < StandardError; end
@@ -63,7 +63,7 @@ class Importmap::Map
   # Example:
   #
   #   class ApplicationController < ActionController::Base
-  #     etag { Rails.application.importmap.digest(resolver: helpers) if request.format&.html? }
+  #     etag { Rails.application.iconmap.digest(resolver: helpers) if request.format&.html? }
   #   end
   def digest(resolver:)
     Digest::SHA1.hexdigest(to_json(resolver: resolver).to_s)
@@ -100,7 +100,7 @@ class Importmap::Map
     end
 
     def rescuable_asset_error?(error)
-      Rails.application.config.importmap.rescuable_asset_errors.any? { |e| error.is_a?(e) }
+      Rails.application.config.iconmap.rescuable_asset_errors.any? { |e| error.is_a?(e) }
     end
 
     def resolve_asset_paths(paths, resolver:)
@@ -109,7 +109,7 @@ class Importmap::Map
           resolver.path_to_asset(mapping.path)
         rescue => e
           if rescuable_asset_error?(e)
-            Rails.logger.warn "Importmap skipped missing path: #{mapping.path}"
+            Rails.logger.warn "Iconmap skipped missing path: #{mapping.path}"
             nil
           else
             raise e

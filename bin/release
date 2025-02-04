@@ -7,14 +7,14 @@ if [ -z "$VERSION" ]; then
   exit 1
 fi
 
-printf "module Importmap\n  VERSION = \"$VERSION\"\nend\n" > ./lib/importmap/version.rb
+printf "module Iconmap\n  VERSION = \"$VERSION\"\nend\n" > ./lib/iconmap/version.rb
 bundle
 for gemfile in $(ls gemfiles/*.gemfile); do BUNDLE_GEMFILE="$gemfile" bundle; done
-git add Gemfile.lock gemfiles/*.lock lib/importmap/version.rb
+git add Gemfile.lock gemfiles/*.lock lib/iconmap/version.rb
 git commit -m "Bump version for $VERSION"
 git push
 git tag v$VERSION
 git push --tags
-gem build importmap-rails.gemspec
-gem push "importmap-rails-$VERSION.gem" --host https://rubygems.org
-rm importmap-rails-$VERSION.gem
+gem build iconmap-rails.gemspec
+gem push "iconmap-rails-$VERSION.gem" --host https://rubygems.org
+rm iconmap-rails-$VERSION.gem
