@@ -1,0 +1,33 @@
+inherit_from: .rubocop_todo.yml
+
+require:
+  - rubocop-capybara
+  - rubocop-minitest
+  - rubocop-packaging
+  - rubocop-performance
+  - rubocop-rails
+  - rubocop-rake
+
+AllCops:
+  TargetRailsVersion: 7.1
+  TargetRubyVersion: 3.1
+  NewCops: enable
+  DisplayStyleGuide: true
+  ExtraDetails: true
+  Exclude:
+    - .git/**/*
+    - gemfiles/**/*
+    - tmp/**/*
+    - vendor/**/*
+
+Layout/LineLength:
+  Enabled: false
+
+Style/Documentation:
+  Enabled: false
+
+Style/IfUnlessModifier:
+  Enabled: false
+
+Style/RedundantRegexpEscape:
+  Enabled: false # Escaping chars helps with syntax highlighting

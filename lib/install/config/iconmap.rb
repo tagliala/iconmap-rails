@@ -1,2 +1,3 @@
-# Pin icons by running ./bin/iconmap
+# frozen_string_literal: true
 
+# Pin icons by running ./bin/iconmap
