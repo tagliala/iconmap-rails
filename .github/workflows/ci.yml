@@ -3,7 +3,6 @@ on: [push, pull_request]
 jobs:
   tests:
     strategy:
-      fail-fast: false
       matrix:
         ruby-version:
           - "3.2"
@@ -16,46 +15,63 @@ jobs:
           - gemfiles/rails_7_2_sprockets.gemfile
           - gemfiles/rails_8_0_propshaft.gemfile
           - gemfiles/rails_8_0_sprockets.gemfile
+        channel: ['stable']
 
         include:
           - ruby-version: "3.1"
             gemfile: gemfiles/rails_7_1_propshaft.gemfile
+            channel: 'stable'
           - ruby-version: "3.1"
             gemfile: gemfiles/rails_7_1_sprockets.gemfile
+            channel: 'stable'
 
           - ruby-version: "3.2"
             gemfile: gemfiles/rails_main_propshaft.gemfile
+            channel: 'experimental'
           - ruby-version: "3.2"
             gemfile: gemfiles/rails_main_sprockets.gemfile
+            channel: 'experimental'
 
           - ruby-version: "3.3"
             gemfile: gemfiles/rails_main_propshaft.gemfile
+            channel: 'experimental'
           - ruby-version: "3.3"
             gemfile: gemfiles/rails_main_sprockets.gemfile
+            channel: 'experimental'
 
           - ruby-version: "3.4"
             gemfile: gemfiles/rails_main_propshaft.gemfile
+            channel: 'experimental'
           - ruby-version: "3.4"
             gemfile: gemfiles/rails_main_sprockets.gemfile
+            channel: 'experimental'
 
           - ruby-version: "ruby-head"
             gemfile: gemfiles/rails_7_2_propshaft.gemfile
+            channel: 'experimental'
           - ruby-version: "ruby-head"
             gemfile: gemfiles/rails_7_2_sprockets.gemfile
+            channel: 'experimental'
           - ruby-version: "ruby-head"
             gemfile: gemfiles/rails_8_0_propshaft.gemfile
+            channel: 'experimental'
           - ruby-version: "ruby-head"
             gemfile: gemfiles/rails_8_0_sprockets.gemfile
+            channel: 'experimental'
           - ruby-version: "ruby-head"
             gemfile: gemfiles/rails_main_propshaft.gemfile
+            channel: 'experimental'
           - ruby-version: "ruby-head"
             gemfile: gemfiles/rails_main_sprockets.gemfile
+            channel: 'experimental'
 
     name: ${{ format('Tests (Ruby {0}, {1})', matrix.ruby-version, matrix.gemfile) }}
     runs-on: ubuntu-latest
 
     env:
       BUNDLE_GEMFILE: ${{ matrix.gemfile }}
+
+    continue-on-error: ${{ matrix.channel != 'stable' }}
 
     steps:
       - uses: actions/checkout@v4

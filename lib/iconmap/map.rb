@@ -1,4 +1,6 @@
-require "pathname"
+# frozen_string_literal: true
+
+require 'pathname'
 
 class Iconmap::Map
   attr_reader :packages, :directories
@@ -6,20 +8,21 @@ class Iconmap::Map
   class InvalidFile < StandardError; end
 
   def initialize
-    @packages, @directories = {}, {}
+    @packages = {}
+    @directories = {}
     @cache = {}
   end
 
-  def draw(path = nil, &block)
+  def draw(path = nil, &)
     if path && File.exist?(path)
       begin
         instance_eval(File.read(path), path.to_s)
       rescue StandardError => e
-        Rails.logger.error "Unable to parse import map from #{path}: #{e.message}"
-        raise InvalidFile, "Unable to parse import map from #{path}: #{e.message}"
+        Rails.logger.error "Unable to parse icon map from #{path}: #{e.message}"
+        raise InvalidFile, "Unable to parse icon map from #{path}: #{e.message}"
       end
     elsif block_given?
-      instance_eval(&block)
+      instance_eval(&)
     end
 
     self
@@ -40,25 +43,25 @@ class Iconmap::Map
   # resolver that has been configured for the `asset_host` you want these resolved paths to use. In case you need to
   # resolve for different asset hosts, you can pass in a custom `cache_key` to vary the cache used by this method for
   # the different cases.
-  def preloaded_module_paths(resolver:, entry_point: "application", cache_key: :preloaded_module_paths)
+  def preloaded_module_paths(resolver:, entry_point: 'application', cache_key: :preloaded_module_paths)
     cache_as(cache_key) do
       resolve_asset_paths(expanded_preloading_packages_and_directories(entry_point:), resolver:).values
     end
   end
 
-  # Returns a JSON hash (as a string) of all the resolved module paths of the pinned packages in the import map format.
+  # Returns a JSON hash (as a string) of all the resolved module paths of the pinned packages in the icon map format.
   # The `resolver` must respond to `path_to_asset`, such as `ActionController::Base.helpers` or
   # `ApplicationController.helpers`. You'll want to use the resolver that has been configured for the `asset_host` you
   # want these resolved paths to use. In case you need to resolve for different asset hosts, you can pass in a custom
   # `cache_key` to vary the cache used by this method for the different cases.
   def to_json(resolver:, cache_key: :json)
     cache_as(cache_key) do
-      JSON.pretty_generate({ "imports" => resolve_asset_paths(expanded_packages_and_directories, resolver: resolver) })
+      JSON.pretty_generate({ 'imports' => resolve_asset_paths(expanded_packages_and_directories, resolver: resolver) })
     end
   end
 
-  # Returns a SHA1 digest of the import map json that can be used as a part of a page etag to
-  # ensure that a html cache is invalidated when the import map is changed.
+  # Returns a SHA1 digest of the icon map json that can be used as a part of a page etag to
+  # ensure that a html cache is invalidated when the icon map is changed.
   #
   # Example:
   #
@@ -75,7 +78,7 @@ class Iconmap::Map
   def cache_sweeper(watches: nil)
     if watches
       @cache_sweeper =
-        Rails.application.config.file_watcher.new([], Array(watches).collect { |dir| [ dir.to_s, "js"] }.to_h) do
+        Rails.application.config.file_watcher.new([], Array(watches).collect { |dir| [dir.to_s, 'js'] }.to_h) do
           clear_cache
         end
     else
@@ -84,85 +87,82 @@ class Iconmap::Map
   end
 
   private
-    MappedDir  = Struct.new(:dir, :path, :under, :preload, keyword_init: true)
-    MappedFile = Struct.new(:name, :path, :preload, keyword_init: true)
 
-    def cache_as(name)
-      if result = @cache[name.to_s]
-        result
-      else
-        @cache[name.to_s] = yield
+  MappedDir  = Struct.new(:dir, :path, :under, :preload, keyword_init: true)
+  MappedFile = Struct.new(:name, :path, :preload, keyword_init: true)
+
+  def cache_as(name)
+    if result = @cache[name.to_s]
+      result
+    else
+      @cache[name.to_s] = yield
+    end
+  end
+
+  def clear_cache
+    @cache.clear
+  end
+
+  def rescuable_asset_error?(error)
+    Rails.application.config.iconmap.rescuable_asset_errors.any? { |e| error.is_a?(e) }
+  end
+
+  def resolve_asset_paths(paths, resolver:)
+    paths.transform_values do |mapping|
+      resolver.path_to_asset(mapping.path)
+    rescue StandardError => e
+      raise e unless rescuable_asset_error?(e)
+
+      Rails.logger.warn "Iconmap skipped missing path: #{mapping.path}"
+      nil
+    end.compact
+  end
+
+  def expanded_preloading_packages_and_directories(entry_point:)
+    expanded_packages_and_directories.select { |_name, mapping| mapping.preload.in?([true, false]) ? mapping.preload : (Array(mapping.preload) & Array(entry_point)).any? }
+  end
+
+  def expanded_packages_and_directories
+    @packages.dup.tap { |expanded| expand_directories_into expanded }
+  end
+
+  def expand_directories_into(paths)
+    @directories.each_value do |mapping|
+      next unless (absolute_path = absolute_root_of(mapping.dir)).exist?
+
+      find_javascript_files_in_tree(absolute_path).each do |filename|
+        module_filename = filename.relative_path_from(absolute_path)
+        module_name     = module_name_from(module_filename, mapping)
+        module_path     = module_path_from(module_filename, mapping)
+
+        paths[module_name] = MappedFile.new(name: module_name, path: module_path, preload: mapping.preload)
       end
     end
+  end
 
-    def clear_cache
-      @cache.clear
-    end
+  def module_name_from(filename, mapping)
+    # Regex explanation:
+    # (?:\/|^) # Matches either / OR the start of the string
+    # index   # Matches the word index
+    # $       # Matches the end of the string
+    #
+    # Sample matches
+    # index
+    # folder/index
+    index_regex = %r{(?:/|^)index$}
 
-    def rescuable_asset_error?(error)
-      Rails.application.config.iconmap.rescuable_asset_errors.any? { |e| error.is_a?(e) }
-    end
+    [mapping.under, filename.to_s.remove(filename.extname).remove(index_regex).presence].compact.join('/')
+  end
 
-    def resolve_asset_paths(paths, resolver:)
-      paths.transform_values do |mapping|
-        begin
-          resolver.path_to_asset(mapping.path)
-        rescue => e
-          if rescuable_asset_error?(e)
-            Rails.logger.warn "Iconmap skipped missing path: #{mapping.path}"
-            nil
-          else
-            raise e
-          end
-        end
-      end.compact
-    end
+  def module_path_from(filename, mapping)
+    [mapping.path || mapping.under, filename.to_s].compact.reject(&:empty?).join('/')
+  end
 
-    def expanded_preloading_packages_and_directories(entry_point:)
-      expanded_packages_and_directories.select { |name, mapping| mapping.preload.in?([true, false]) ? mapping.preload : (Array(mapping.preload) & Array(entry_point)).any? }
-    end
+  def find_javascript_files_in_tree(path)
+    Dir[path.join('**/*.js{,m}')].collect { |file| Pathname.new(file) }.select(&:file?)
+  end
 
-    def expanded_packages_and_directories
-      @packages.dup.tap { |expanded| expand_directories_into expanded }
-    end
-
-    def expand_directories_into(paths)
-      @directories.values.each do |mapping|
-        if (absolute_path = absolute_root_of(mapping.dir)).exist?
-          find_javascript_files_in_tree(absolute_path).each do |filename|
-            module_filename = filename.relative_path_from(absolute_path)
-            module_name     = module_name_from(module_filename, mapping)
-            module_path     = module_path_from(module_filename, mapping)
-
-            paths[module_name] = MappedFile.new(name: module_name, path: module_path, preload: mapping.preload)
-          end
-        end
-      end
-    end
-
-    def module_name_from(filename, mapping)
-      # Regex explanation:
-      # (?:\/|^) # Matches either / OR the start of the string
-      # index   # Matches the word index
-      # $       # Matches the end of the string
-      #
-      # Sample matches
-      # index
-      # folder/index
-      index_regex = /(?:\/|^)index$/
-
-      [ mapping.under, filename.to_s.remove(filename.extname).remove(index_regex).presence ].compact.join("/")
-    end
-
-    def module_path_from(filename, mapping)
-      [ mapping.path || mapping.under, filename.to_s ].compact.reject(&:empty?).join("/")
-    end
-
-    def find_javascript_files_in_tree(path)
-      Dir[path.join("**/*.js{,m}")].sort.collect { |file| Pathname.new(file) }.select(&:file?)
-    end
-
-    def absolute_root_of(path)
-      (pathname = Pathname.new(path)).absolute? ? pathname : Rails.root.join(path)
-    end
+  def absolute_root_of(path)
+    (pathname = Pathname.new(path)).absolute? ? pathname : Rails.root.join(path)
+  end
 end

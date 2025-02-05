@@ -1,23 +1,25 @@
-require_relative "boot"
+# frozen_string_literal: true
 
-require "rails"
-require "active_model/railtie"
-require "active_record/railtie"
-require "action_controller/railtie"
-require "action_view/railtie"
+require_relative 'boot'
+
+require 'rails'
+require 'active_model/railtie'
+require 'active_record/railtie'
+require 'action_controller/railtie'
+require 'action_view/railtie'
 begin
-  require "sprockets/railtie"
+  require 'sprockets/railtie'
 rescue LoadError
   # This is safe to ignore: it's expected that sprockets-rails won't be
   # available when we're testing against an application that uses rails 7 with
   # an alternative asset pipeline (e.g. propshaft).
 end
-require "active_storage/engine"
+require 'active_storage/engine'
 
 # Require the gems listed in Gemfile, including any gems
 # you've limited to :test, :development, or :production.
 Bundler.require(*Rails.groups)
-require "iconmap-rails"
+require 'iconmap-rails'
 
 module Dummy
   class Application < Rails::Application

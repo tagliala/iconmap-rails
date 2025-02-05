@@ -1,12 +1,14 @@
-require "test_helper"
-require "iconmap/npm"
-require "minitest/mock"
+# frozen_string_literal: true
+
+require 'test_helper'
+require 'iconmap/npm'
+require 'minitest/mock'
 
 class Iconmap::NpmTest < ActiveSupport::TestCase
-  setup { @npm = Iconmap::Npm.new(file_fixture("outdated_icon_map.rb")) }
+  setup { @npm = Iconmap::Npm.new(file_fixture('outdated_icon_map.rb')) }
 
-  test "successful outdated packages with mock" do
-    response = { "dist-tags" => { "latest" => '2.3.0' } }.to_json
+  test 'successful outdated packages with mock' do
+    response = { 'dist-tags' => { 'latest' => '2.3.0' } }.to_json
 
     @npm.stub(:get_json, response) do
       outdated_packages = @npm.outdated_packages
@@ -18,9 +20,9 @@ class Iconmap::NpmTest < ActiveSupport::TestCase
     end
   end
 
-  test "successful outdated packages using single-quotes with mock" do
-    npm = Iconmap::Npm.new(file_fixture("single_quote_outdated_icon_map.rb"))
-    response = { "dist-tags" => { "latest" => '2.3.0' } }.to_json
+  test 'successful outdated packages using single-quotes with mock' do
+    npm = Iconmap::Npm.new(file_fixture('single_quote_outdated_icon_map.rb'))
+    response = { 'dist-tags' => { 'latest' => '2.3.0' } }.to_json
 
     npm.stub(:get_json, response) do
       outdated_packages = npm.outdated_packages
@@ -32,9 +34,9 @@ class Iconmap::NpmTest < ActiveSupport::TestCase
     end
   end
 
-  test "successful outdated packages using single-quotes and without CDN with mock" do
-    npm = Iconmap::Npm.new(file_fixture("single_quote_outdated_icon_map_without_cdn.rb"))
-    response = { "dist-tags" => { "latest" => '2.3.0' } }.to_json
+  test 'successful outdated packages using single-quotes and without CDN with mock' do
+    npm = Iconmap::Npm.new(file_fixture('single_quote_outdated_icon_map_without_cdn.rb'))
+    response = { 'dist-tags' => { 'latest' => '2.3.0' } }.to_json
 
     npm.stub(:get_json, response) do
       outdated_packages = npm.outdated_packages
@@ -46,8 +48,8 @@ class Iconmap::NpmTest < ActiveSupport::TestCase
     end
   end
 
-  test "missing outdated packages with mock" do
-    response = { "error" => "Not found" }.to_json
+  test 'missing outdated packages with mock' do
+    response = { 'error' => 'Not found' }.to_json
 
     @npm.stub(:get_json, response) do
       outdated_packages = @npm.outdated_packages
@@ -59,21 +61,21 @@ class Iconmap::NpmTest < ActiveSupport::TestCase
     end
   end
 
-  test "failed outdated packages request with mock" do
-    Net::HTTP.stub(:start, proc { raise "Unexpected Error" }) do
+  test 'failed outdated packages request with mock' do
+    Net::HTTP.stub(:start, proc { raise 'Unexpected Error' }) do
       assert_raises(Iconmap::Npm::HTTPError) do
         @npm.outdated_packages
       end
     end
   end
 
-  test "successful vulnerable packages with mock" do
+  test 'successful vulnerable packages with mock' do
     response = Class.new do
       def body
-        { "md5" => [{ "title" => "Unsafe hashing", "severity" => "high", "vulnerable_versions" => "<42.0.0" }] }.to_json
+        { 'md5' => [{ 'title' => 'Unsafe hashing', 'severity' => 'high', 'vulnerable_versions' => '<42.0.0' }] }.to_json
       end
 
-      def code() "200" end
+      def code = '200'
     end.new
 
     @npm.stub(:post_json, response) do
@@ -87,16 +89,16 @@ class Iconmap::NpmTest < ActiveSupport::TestCase
     end
   end
 
-  test "failed vulnerable packages request with mock" do
-    Net::HTTP.stub(:post, proc { raise "Unexpected Error" }) do
+  test 'failed vulnerable packages request with mock' do
+    Net::HTTP.stub(:post, proc { raise 'Unexpected Error' }) do
       assert_raises(Iconmap::Npm::HTTPError) do
         @npm.vulnerable_packages
       end
     end
   end
 
-  test "return latest version response is a String type" do
-    response = "version not found".to_json
+  test 'return latest version response is a String type' do
+    response = 'version not found'.to_json
 
     @npm.stub(:get_json, response) do
       outdated_packages = @npm.outdated_packages
