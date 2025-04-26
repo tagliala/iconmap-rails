@@ -9,15 +9,6 @@ Iconmap for Rails is automatically included in Rails 7+ for new applications, bu
 1. Run `./bin/bundle add iconmap-rails`
 2. Run `./bin/rails iconmap:install`
 
-You can pin those libraries manually by relying on the compiled versions included in Rails like this:
-
-```ruby
-pin "@rails/actioncable", to: "actioncable.esm.js"
-pin "@rails/activestorage", to: "activestorage.esm.js"
-pin "@rails/actiontext", to: "actiontext.esm.js"
-pin "trix"
-```
-
 ## How do iconmaps work?
 
 At their core, iconmaps are essentially a string substitution for what are referred to as "bare module specifiers". A "bare module specifier" looks like this: `import React from "react"`. This is not compatible with the ES Module loader spec. Instead, to be ESM compatible, you must provide 1 of the 3 following types of specifiers:
@@ -84,21 +75,19 @@ Note: Sprockets used to serve assets (albeit without filename digests) it couldn
 
 ## Using npm packages via JavaScript CDNs
 
-Iconmap for Rails downloads and vendors your npm package dependencies via JavaScript CDNs that provide pre-compiled distribution versions.
+Iconmap for Rails downloads and vendors your icons via JavaScript CDNs that provide pre-compiled distribution versions.
 
-You can use the `./bin/iconmap` command that's added as part of the install to pin, unpin, or update npm packages in your icon map. This command uses an API from [JSPM.org](https://jspm.org) to resolve your package dependencies efficiently, and then add the pins to your `config/iconmap.rb` file. It can resolve these dependencies from JSPM itself, but also from other CDNs, like [unpkg.com](https://unpkg.com) and [jsdelivr.com](https://www.jsdelivr.com).
+You can use the `./bin/iconmap` command that's added as part of the install to pin, unpin, or update icons in your icon map. This command uses an API from [JSPM.org](https://jspm.org) to resolve your package dependencies efficiently, and then add the pins to your `config/iconmap.rb` file. It can resolve these dependencies from JSPM itself, but also from other CDNs, like [unpkg.com](https://unpkg.com) and [jsdelivr.com](https://www.jsdelivr.com).
 
 ```bash
-./bin/iconmap pin react
-Pinning "react" to vendor/react.js via download from https://ga.jspm.io/npm:react@17.0.2/index.js
-Pinning "object-assign" to vendor/object-assign.js via download from https://ga.jspm.io/npm:object-assign@4.1.1/index.js
+./bin/iconmap pin @fortawesome/fontawesome-free/svgs/brands/github.svg --from=jsdelivr
+Pinning "@fortawesome/fontawesome-free/svgs/brands/github.svg" to vendor/icons/@fortawesome/fontawesome-free/svgs/brands/github.svg via download from https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.7.2/svgs/brands/github.svg
 ```
 
 This will produce pins in your `config/iconmap.rb` like so:
 
 ```ruby
-pin "react" # https://ga.jspm.io/npm:react@17.0.2/index.js
-pin "object-assign" # https://ga.jspm.io/npm:object-assign@4.1.1/index.js
+pin "@fortawesome/fontawesome-free/svgs/brands/github.svg", to: "@fortawesome--fontawesome-free--svgs--brands--github.svg" # @6.7.2
 ```
 
 The packages are downloaded to `vendor/icons`, which you can check into your source control, and they'll be available through your application's own asset pipeline serving.
@@ -106,47 +95,9 @@ The packages are downloaded to `vendor/icons`, which you can check into your sou
 If you later wish to remove a downloaded pin:
 
 ```bash
-./bin/iconmap unpin react
-Unpinning and removing "react"
-Unpinning and removing "object-assign"
+./bin/iconmap unpin @fortawesome/fontawesome-free/svgs/brands/github.svg
+Unpinning and removing "@fortawesome/fontawesome-free/svgs/brands/github.svg"
 ```
-
-## Preloading pinned modules
-
-To avoid the waterfall effect where the browser has to load one file after another before it can get to the deepest nested import, iconmap-rails uses [modulepreload links](https://developers.google.com/web/updates/2017/12/modulepreload) by default. If you don't want to preload a dependency, because you want to load it on-demand for efficiency, append `preload: false` to the pin.
-
-Example:
-
-```ruby
-# config/iconmap.rb
-pin "@github/hotkey", to: "@github--hotkey.js" # file lives in vendor/icons/@github--hotkey.js
-pin "md5", preload: false # file lives in vendor/javascript/md5.js
-
-# app/views/layouts/application.html.erb
-<%= javascript_iconmap_tags %>
-
-# will include the following link before the iconmap is setup:
-<link rel="modulepreload" href="/assets/javascript/@github--hotkey.js">
-...
-```
-
-You can also specify which entry points to preload a particular dependency in by providing `preload:` a string or array of strings.
-
-Example:
-
-```ruby
-# config/iconmap.rb
-pin "@github/hotkey", to: "@github--hotkey.js", preload: 'application'
-pin "md5", preload: ['application', 'alternate']
-
-# app/views/layouts/application.html.erb
-<%= javascript_iconmap_tags 'alternate' %>
-
-# will include the following link before the iconmap is setup:
-<link rel="modulepreload" href="/assets/javascript/md5.js">
-...
-```
-
 
 
 ## Composing icon maps
@@ -213,54 +164,12 @@ Import your module on the specific page. Note: you'll likely want to use a `cont
 ```
 
 
-## Include a digest of the icon map in your ETag
-
-If you're using [ETags](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/ETag) generated by Rails helpers like `stale?` or `fresh_when`, you need to include the digest of the icon map into this calculation. Otherwise your application will return [304](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/304) cache responses even when your JavaScript assets have changed. You can avoid this using the `stale_when_iconmap_changes` method:
-
-```ruby
-class ApplicationController < ActionController::Base
-  stale_when_iconmap_changes
-end
-```
-
-This will add the digest of the iconmap to the etag calculation when the request format is HTML.
-
-
-## Sweeping the cache in development and test
-
-Generating the icon map json and modulepreloads may require resolving hundreds of assets. This can take a while, so these operations are cached, but in development and test, we watch for changes to both `config/iconmap.rb` and files in `app/javascript` to clear this cache. This feature can be controlled in an environment configuration file via the boolean `config.iconmap.sweep_cache`.
-
-If you're pinning local files from outside of `app/javascript`, you'll need to add them to the cache sweeper configuration or restart your development server upon changes to those external files. For example, here's how you can do it for Rails engine:
-
-```ruby
-# my_engine/lib/my_engine/engine.rb
-
-module MyEngine
-  class Engine < ::Rails::Engine
-    # ...
-    initializer "my-engine.iconmap", before: "iconmap" do |app|
-      # ...
-      app.config.iconmap.cache_sweepers << Engine.root.join("app/assets/icons")
-    end
-  end
-end
-```
-
 ## Checking for outdated or vulnerable packages
 
 Iconmap for Rails provides two commands to check your pinned packages:
 - `./bin/iconmap outdated` checks the NPM registry for new versions
 - `./bin/iconmap audit` checks the NPM registry for known security issues
 
-## Supporting legacy browsers such as Safari on iOS 15
-
-If you want to support [legacy browsers that do not support icon maps](https://caniuse.com/import-maps) such as [iOS 15.8.1 released on 22 Jan 2024](https://support.apple.com/en-us/HT201222), insert [`es-module-shims`](https://github.com/guybedford/es-module-shims) before `javascript_iconmap_tags` as below.
-
-```erb
-<script async src="https://ga.jspm.io/npm:es-module-shims@1.8.2/dist/es-module-shims.js" data-turbo-track="reload"></script>
-<%= javascript_iconmap_tags %>
-```
-
-## License
+## Suppor## License
 
 Iconmap for Rails is released under the [MIT License](https://opensource.org/licenses/MIT).
