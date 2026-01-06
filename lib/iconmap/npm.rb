@@ -5,20 +5,22 @@ require 'uri'
 require 'json'
 
 class Iconmap::Npm
+  PIN_REGEX = /#{Iconmap::Map::PIN_REGEX}.*/ # :nodoc:
+
   Error     = Class.new(StandardError)
   HTTPError = Class.new(Error)
 
   singleton_class.attr_accessor :base_uri
   self.base_uri = URI('https://registry.npmjs.org')
 
-  def initialize(iconmap_path = 'config/iconmap.rb')
-    @iconmap_path = Pathname.new(iconmap_path)
+  def initialize(iconmap_path = 'config/iconmap.rb', vendor_path: 'vendor/icons')
+    @iconmap_path   = Pathname.new(iconmap_path)
+    @vendor_path    = Pathname.new(vendor_path)
   end
 
   def outdated_packages
-    packages_with_versions.each.with_object([]) do |(package, current_version), outdated_packages|
-      outdated_package = OutdatedPackage.new(name: package,
-                                             current_version: current_version)
+    packages_with_versions.each_with_object([]) do |(package, current_version), outdated_packages|
+      outdated_package = OutdatedPackage.new(name: package, current_version: current_version)
 
       if !(response = get_package(normalize_package_name(package)))
         outdated_package.error = 'Response error'
@@ -38,10 +40,12 @@ class Iconmap::Npm
   def vulnerable_packages
     get_audit.flat_map do |package, vulnerabilities|
       vulnerabilities.map do |vulnerability|
-        VulnerablePackage.new(name: package,
-                              severity: vulnerability['severity'],
-                              vulnerable_versions: vulnerability['vulnerable_versions'],
-                              vulnerability: vulnerability['title'])
+        VulnerablePackage.new(
+          name: package,
+          severity: vulnerability['severity'],
+          vulnerable_versions: vulnerability['vulnerable_versions'],
+          vulnerability: vulnerability['title']
+        )
       end
     end.sort_by { |p| [p.name, p.severity] }
   end
@@ -49,9 +53,14 @@ class Iconmap::Npm
   def packages_with_versions
     # We cannot use the name after "pin" because some dependencies are loaded from inside packages
     # Eg. pin "buffer", to: "https://ga.jspm.io/npm:@jspm/core@2.0.0-beta.19/nodelibs/browser/buffer.js"
+    with_versions = iconmap.scan(%r{^pin .*(?<=npm:|npm/|skypack\.dev/|unpkg\.com/)([^@/]+)@(\d+\.\d+\.\d+(?:[^/\s"']*))}) |
+                    iconmap.scan(/#{PIN_REGEX} #.*@(\d+\.\d+\.\d+(?:[^\s]*)).*$/o)
 
-    iconmap.scan(%r{^pin .*(?<=npm:|npm/|skypack\.dev/|unpkg\.com/)(.*)(?=@\d+\.\d+\.\d+)@(\d+\.\d+\.\d+(?:[^/\s["']]*)).*$}) |
-      iconmap.scan(/^pin ["']([^["']]*)["'].* #.*@(\d+\.\d+\.\d+(?:[^\s]*)).*$/)
+    vendored_packages_without_version(with_versions).each do |package, path|
+      $stdout.puts "Ignoring #{package} (#{path}) since no version is specified in the iconmap"
+    end
+
+    with_versions
   end
 
   private
@@ -86,13 +95,19 @@ class Iconmap::Npm
     request = Net::HTTP::Get.new(uri)
     request['Content-Type'] = 'application/json'
 
-    response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) do |http|
-      http.request(request)
+    response = begin
+      Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) do |http|
+        http.request(request)
+      end
+    rescue StandardError => e
+      raise HTTPError, "Unexpected transport error (#{e.class}: #{e.message})"
+    end
+
+    unless response.code.to_i < 300
+      raise HTTPError, "Unexpected error response #{response.code}: #{response.body}"
     end
 
     response.body
-  rescue StandardError => e
-    raise HTTPError, "Unexpected transport error (#{e.class}: #{e.message})"
   end
 
   def find_latest_version(response)
@@ -125,6 +140,11 @@ class Iconmap::Npm
     return {} if body.empty?
 
     response = post_json(uri, body)
+
+    unless response.code.to_i < 300
+      raise HTTPError, "Unexpected error response #{response.code}: #{response.body}"
+    end
+
     JSON.parse(response.body)
   end
 
@@ -132,5 +152,28 @@ class Iconmap::Npm
     Net::HTTP.post(uri, body.to_json, 'Content-Type' => 'application/json')
   rescue StandardError => e
     raise HTTPError, "Unexpected transport error (#{e.class}: #{e.message})"
+  end
+
+  def vendored_packages_without_version(packages_with_versions)
+    versioned_packages = packages_with_versions.to_set(&:first)
+
+    iconmap
+      .lines
+      .filter_map { |line| find_unversioned_vendored_package(line, versioned_packages) }
+  end
+
+  def find_unversioned_vendored_package(line, versioned_packages)
+    regexp = line.include?('to:') ? /#{PIN_REGEX}to: ["']([^"']*)["'].*/o : PIN_REGEX
+    match = line.match(regexp)
+
+    return unless match
+
+    package, filename = match.captures
+    filename ||= "#{package}.js"
+
+    return if versioned_packages.include?(package)
+
+    path = File.join(@vendor_path, filename)
+    [package, path] if File.exist?(path)
   end
 end

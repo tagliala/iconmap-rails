@@ -17,9 +17,9 @@ Gem::Specification.new do |spec|
 
   spec.files = Dir['{app,lib}/**/*', 'MIT-LICENSE', 'Rakefile', 'README.md']
 
-  spec.required_ruby_version = '>= 3.1.0'
+  spec.required_ruby_version = '>= 3.2.0'
 
-  spec.add_dependency 'actionpack', '>= 7.1.0'
-  spec.add_dependency 'activesupport', '>= 7.1.0'
-  spec.add_dependency 'railties', '>= 7.1.0'
+  spec.add_dependency 'actionpack', '>= 7.2.0'
+  spec.add_dependency 'activesupport', '>= 7.2.0'
+  spec.add_dependency 'railties', '>= 7.2.0'
 end
