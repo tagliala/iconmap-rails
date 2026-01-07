@@ -16,15 +16,14 @@ class Iconmap::Commands < Thor
   option :from, type: :string, aliases: :f, default: 'jspm'
   def pin(*packages)
     for_each_import(packages, env: options[:env], from: options[:from]) do |package, url|
-      pin_package(package, url, options[:preload])
+      pin_package(package, url, options[:from], options[:preload])
     end
   end
 
   desc 'unpin [*PACKAGES]', 'Unpin existing packages'
   option :env, type: :string, aliases: :e, default: 'production'
-  option :from, type: :string, aliases: :f, default: 'jspm'
   def unpin(*packages)
-    for_each_import(packages, env: options[:env], from: options[:from]) do |package, _url|
+    for_each_import(packages, env: options[:env], from: '') do |package, _url|
       if packager.packaged?(package)
         puts %(Unpinning and removing "#{package}")
         packager.remove(package)
@@ -34,14 +33,15 @@ class Iconmap::Commands < Thor
 
   desc 'pristine', 'Redownload all pinned packages'
   option :env, type: :string, aliases: :e, default: 'production'
-  option :from, type: :string, aliases: :f, default: 'jspm'
   def pristine
     packages = prepare_packages_with_versions
 
-    for_each_import(packages, env: options[:env], from: options[:from]) do |package, url|
-      puts %(Downloading "#{package}" to #{packager.vendor_path}/#{package} from #{url})
+    packages.each do |package, package_options|
+      for_each_import(package, env: options[:env], from: package_options[:from]) do |package, url|
+        puts %(Downloading "#{package}" to #{packager.vendor_path}/#{package} from #{url})
 
-      packager.download(package, url)
+        packager.download(package, url)
+      end
     end
   end
 
@@ -94,10 +94,12 @@ class Iconmap::Commands < Thor
       package_names = outdated_packages.map(&:name)
       packages_with_options = packager.extract_existing_pin_options(package_names)
 
-      for_each_import(package_names, env: 'production', from: 'jspm') do |package, url|
-        options = packages_with_options[package] || {}
+      package_names.each do |package_name|
+        options = packages_with_options[package_name] || {}
 
-        pin_package(package, url, options[:preload])
+        for_each_import(package_name, env: 'production', from: options[:from]) do |package, url|
+          pin_package(package, url, options[:from], options[:preload])
+        end
       end
     else
       puts 'No outdated icons found'
@@ -119,12 +121,12 @@ class Iconmap::Commands < Thor
     @npm ||= Iconmap::Npm.new
   end
 
-  def pin_package(package, url, preload)
+  def pin_package(package, url, from, preload)
     puts %(Pinning "#{package}" to #{packager.vendor_path}/#{package}.js via download from #{url})
 
     packager.download(package, url)
 
-    pin = packager.vendored_pin_for(package, url, preload)
+    pin = packager.vendored_pin_for(package, url, from, preload)
 
     update_importmap_with_pin(package, pin)
   end
@@ -170,8 +172,20 @@ class Iconmap::Commands < Thor
 
   def prepare_packages_with_versions(packages = [])
     if packages.empty?
-      npm.packages_with_versions.map do |p, v|
-        v.blank? ? p : [p, v].join('@')
+      npm_packages_with_versions = npm.packages_with_versions
+      packages_with_options = packager.extract_existing_pin_options(npm_packages_with_versions.map(&:first))
+
+      npm_packages_with_versions.to_h do |p, v|
+        options = packages_with_options[p]
+        if v.blank?
+          [p, options]
+        elsif p.start_with?('@')
+          parts = p.split('/', 3)
+          ["#{parts[0..1].join('/')}@#{v}/#{parts[2]}", options]
+        else
+          parts = p.split('/', 2)
+          ["#{parts[0]}@#{v}/#{parts[1]}", options]
+        end
       end
     else
       packages

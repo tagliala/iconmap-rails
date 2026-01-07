@@ -7,6 +7,7 @@ require 'json'
 class Iconmap::Packager
   PIN_REGEX = /#{Iconmap::Map::PIN_REGEX}(.*)/ # :nodoc:
   PRELOAD_OPTION_REGEXP = /preload:\s*(\[[^\]]+\]|true|false|["'][^"']*["'])/ # :nodoc:
+  FROM_OPTION_REGEXP = /from:\s*["']([^"']+)["']/ # :nodoc:
 
   Error        = Class.new(StandardError)
   HTTPError    = Class.new(Error)
@@ -17,6 +18,7 @@ class Iconmap::Packager
 
   attr_reader :vendor_path
 
+  # Ref: https://github.com/jspm/jspm/issues/2636
   UNABLE_TO_ANALYZE_REGEXP = %r{Unable to analyze (https://[^\s:]+)}
 
   def initialize(iconmap_path = 'config/iconmap.rb', vendor_path: 'vendor/icons')
@@ -24,37 +26,44 @@ class Iconmap::Packager
     @vendor_path    = Pathname.new(vendor_path)
   end
 
+  # Import icons individually, to track source and workaround jspm/jspm#2636
   def import(*packages, env: 'production', from: 'jspm')
-    response = post_json({
-                           'install' => Array(packages),
-                           'flattenScope' => true,
-                           'env' => ['browser', 'module', env],
-                           'provider' => normalize_provider(from)
-                         })
+    result = packages.filter_map do |package|
+      response = post_json({
+                             'install' => Array(package),
+                             'flattenScope' => true,
+                             'env' => ['browser', 'module', env],
+                             'provider' => normalize_provider(from)
+                           })
 
-    case response.code
-    when '200'
-      extract_parsed_response(response)
-    when '404', '401'
-      recover_parse_error(packages, response) # Workaround for jspm/jspm#2636
-    else
-      handle_failure_response(response)
+      case response.code
+      when '200'
+        extract_parsed_response(response)
+      when '404', '401'
+        recover_parse_error(package, response)
+      else
+        handle_failure_response(response)
+      end
     end
+
+    { imports: result.pluck(:imports).reduce({}, :merge) }
   end
 
-  def pin_for(package, url = nil, preloads: nil)
+  # Track source: https://github.com/rails/importmap-rails/issues/259
+  def pin_for(package, url = nil, from: 'jspm', preloads: nil)
     to = url ? %(, to: "#{url}") : ''
+    from = %(, from: "#{from}")
     preload_param = preload(preloads)
 
-    %(pin "#{package}") + to + preload_param
+    %(pin "#{package}") + to + from + preload_param
   end
 
-  def vendored_pin_for(package, url, preloads = nil)
+  def vendored_pin_for(package, url, from = 'jspm', preloads = nil)
     filename = package_filename(package)
     version  = extract_package_version_from(url)
     to = package == filename ? nil : filename
 
-    pin_for(package, to, preloads: preloads) + %( # #{version})
+    pin_for(package, to, from: from, preloads: preloads) + %( # #{version})
   end
 
   def packaged?(package)
@@ -96,10 +105,12 @@ class Iconmap::Packager
       options_part = match[2]
 
       preload_match = options_part.match(PRELOAD_OPTION_REGEXP)
+      from_match = options_part.match(FROM_OPTION_REGEXP)
+      package_options[package_name] = { from: from_match[1] }
 
       if preload_match
         preload = preload_from_string(preload_match[1])
-        package_options[package_name] = { preload: preload }
+        package_options[package_name][:preload] = preload
       end
     end
   end
@@ -165,15 +176,13 @@ class Iconmap::Packager
     nil
   end
 
-  def recover_parse_error(packages, response)
+  def recover_parse_error(package, response)
     server_error = parse_service_error(response)
     return unless server_error.match?(UNABLE_TO_ANALYZE_REGEXP)
 
-    raise ArgumentError, 'Due to an issue with jspm, it is not possible to add multiple icons from those package.' if packages.many?
-
     {
       imports: {
-        remove_package_version_from(packages[0]) => server_error.match(UNABLE_TO_ANALYZE_REGEXP)[1]
+        remove_package_version_from(package) => server_error.match(UNABLE_TO_ANALYZE_REGEXP)[1]
       }
     }
   end
