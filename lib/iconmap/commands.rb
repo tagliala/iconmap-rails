@@ -136,5 +136,3 @@ class Iconmap::Commands < Thor
     end
   end
 end
-
-Iconmap::Commands.start(ARGV)

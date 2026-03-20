@@ -3,3 +3,5 @@
 
 require_relative '../config/application'
 require 'iconmap/commands'
+
+Iconmap::Commands.start(ARGV)

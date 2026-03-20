@@ -1,0 +1,10 @@
+{
+	"type": "npm",
+	"name": "@fortawesome/fontawesome-free",
+	"version": "7.2.0",
+	"links": {
+		"self": "https://data.jsdelivr.com/v1/packages/npm/@fortawesome/fontawesome-free@7.2.0",
+		"entrypoints": "https://data.jsdelivr.com/v1/packages/npm/@fortawesome/fontawesome-free@7.2.0/entrypoints",
+		"stats": "https://data.jsdelivr.com/v1/stats/packages/npm/@fortawesome/fontawesome-free@7.2.0"
+	}
+}
