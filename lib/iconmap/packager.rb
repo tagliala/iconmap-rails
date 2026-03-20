@@ -3,93 +3,100 @@
 require 'net/http'
 require 'uri'
 require 'json'
+require_relative 'jsdelivr'
 
 class Iconmap::Packager
   Error        = Class.new(StandardError)
   HTTPError    = Class.new(Error)
-  ServiceError = Error.new(Error)
-
-  singleton_class.attr_accessor :endpoint
-  self.endpoint = URI('https://api.jspm.io/generate')
 
   attr_reader :vendor_path
 
   def initialize(iconmap_path = 'config/iconmap.rb', vendor_path: 'vendor/icons')
     @iconmap_path = Pathname.new(iconmap_path)
-    @vendor_path    = Pathname.new(vendor_path)
+    @vendor_path  = Pathname.new(vendor_path)
   end
 
-  def import(*packages, env: 'production', from: 'jspm')
-    response = post_json({
-                           'install' => Array(packages),
-                           'flattenScope' => true,
-                           'env' => ['browser', 'module', env],
-                           'provider' => normalize_provider(from)
-                         })
+  # Parse an icon argument like "@fortawesome/fontawesome-free@7.0.0/svgs/brands/github.svg"
+  # into { package:, path:, version: }
+  def parse_icon_path(arg)
+    if arg.start_with?('@')
+      # Scoped package: @scope/name@version/path or @scope/name/path
+      scope_and_rest = arg[1..] # remove leading @
+      parts = scope_and_rest.split('/', 3)
+      scope = parts[0]
+      name_with_maybe_version = parts[1]
+      remainder = parts[2]
 
-    case response.code
-    when '200'        then extract_parsed_imports(response)
-    when '404', '401' then nil
-    else                   handle_failure_response(response)
-    end
-  end
+      if name_with_maybe_version.include?('@')
+        name, version = name_with_maybe_version.split('@', 2)
+      else
+        name = name_with_maybe_version
+        version = nil
+      end
 
-  def pin_for(package, url)
-    %(pin "#{package}", to: "#{url}")
-  end
-
-  def vendored_pin_for(package, url)
-    filename = package_filename(package)
-    version  = extract_package_version_from(url)
-
-    if "#{package}" == filename
-      %(pin "#{package}" # #{version})
+      { package: "@#{scope}/#{name}", path: remainder, version: version }
     else
-      %(pin "#{package}", to: "#{filename}" # #{version})
+      # Unscoped package: name@version/path or name/path
+      parts = arg.split('/', 2)
+      name_with_maybe_version = parts[0]
+      remainder = parts[1]
+
+      if name_with_maybe_version.include?('@')
+        name, version = name_with_maybe_version.split('@', 2)
+      else
+        name = name_with_maybe_version
+        version = nil
+      end
+
+      { package: name, path: remainder, version: version }
     end
   end
 
-  def packaged?(package)
-    iconmap.match(/^pin ["']#{package}["'].*$/)
+  def pin(arg)
+    parsed = parse_icon_path(arg)
+    version = parsed[:version] || jsdelivr.resolve_version(parsed[:package])
+
+    raise Error, "Could not resolve version for #{parsed[:package]}" unless version
+
+    url = jsdelivr.download_url(parsed[:package], version, parsed[:path])
+    download(parsed[:package], version, parsed[:path], url)
+    vendored_pin_for(parsed[:package], parsed[:path], version)
   end
 
-  def download(package, url)
+  def vendored_pin_for(package, path, version)
+    %(pin '#{package}/#{path}' # @#{version})
+  end
+
+  def packaged?(package_with_path)
+    iconmap.match(/^pin ['"]#{Regexp.escape(package_with_path)}['"].*$/)
+  end
+
+  def download(package, version, path, url = nil)
+    url ||= jsdelivr.download_url(package, version, path)
     ensure_vendor_directory_exists
-    remove_existing_package_file(package)
-    download_package_file(package, url)
+    remove_existing_vendored_file(package, path)
+    content = jsdelivr.fetch_file(url)
+    save_vendored_file(package, path, version, url, content)
   end
 
-  def remove(package)
-    remove_existing_package_file(package)
-    remove_package_from_iconmap(package)
+  def remove(package_with_path)
+    parsed = parse_icon_path(package_with_path)
+    remove_existing_vendored_file(parsed[:package], parsed[:path])
+    remove_package_from_iconmap(package_with_path)
+  end
+
+  def vendored_package_path(package, path)
+    @vendor_path.join(vendored_filename(package, path))
+  end
+
+  def vendored_filename(package, path)
+    "#{package}/#{path}".gsub('/', '--')
   end
 
   private
 
-  def post_json(body)
-    Net::HTTP.post(self.class.endpoint, body.to_json, 'Content-Type' => 'application/json')
-  rescue StandardError => e
-    raise HTTPError, "Unexpected transport error (#{e.class}: #{e.message})"
-  end
-
-  def normalize_provider(name)
-    name.to_s == 'jspm' ? 'jspm.io' : name.to_s
-  end
-
-  def extract_parsed_imports(response)
-    JSON.parse(response.body).dig('map', 'imports')
-  end
-
-  def handle_failure_response(response)
-    raise ServiceError, error_message if parse_service_error(response)
-
-    raise HTTPError, "Unexpected response code (#{response.code})"
-  end
-
-  def parse_service_error(response)
-    JSON.parse(response.body.to_s)['error']
-  rescue JSON::ParserError
-    nil
+  def jsdelivr
+    @jsdelivr ||= Iconmap::Jsdelivr.new
   end
 
   def iconmap
@@ -100,50 +107,23 @@ class Iconmap::Packager
     FileUtils.mkdir_p @vendor_path
   end
 
-  def remove_existing_package_file(package)
-    FileUtils.rm_rf vendored_package_path(package)
+  def remove_existing_vendored_file(package, path)
+    FileUtils.rm_f vendored_package_path(package, path)
   end
 
-  def remove_package_from_iconmap(package)
+  def remove_package_from_iconmap(package_with_path)
     all_lines = File.readlines(@iconmap_path)
-    with_lines_removed = all_lines.grep_v(/pin ["']#{package}["']/)
+    with_lines_removed = all_lines.grep_v(/pin ['"]#{Regexp.escape(package_with_path)}['"]/)
 
     File.open(@iconmap_path, 'w') do |file|
       with_lines_removed.each { |line| file.write(line) }
     end
   end
 
-  def download_package_file(package, url)
-    response = Net::HTTP.get_response(URI(url))
-
-    if response.code == '200'
-      save_vendored_package(package, url, response.body)
-    else
-      handle_failure_response(response)
+  def save_vendored_file(package, path, version, url, content)
+    File.open(vendored_package_path(package, path), 'w+') do |file|
+      file.write "<!-- #{package}/#{path}@#{version} downloaded from #{url} -->\n\n"
+      file.write content
     end
-  end
-
-  def save_vendored_package(package, url, source)
-    File.open(vendored_package_path(package), 'w+') do |vendored_package|
-      vendored_package.write "<!-- #{package}#{extract_package_version_from(url)} downloaded from #{url} -->\n\n"
-
-      vendored_package.write remove_sourcemap_comment_from(source).force_encoding('UTF-8')
-    end
-  end
-
-  def remove_sourcemap_comment_from(source)
-    source.gsub(%r{^//# sourceMappingURL=.*}, '')
-  end
-
-  def vendored_package_path(package)
-    @vendor_path.join(package_filename(package))
-  end
-
-  def package_filename(package)
-    package.gsub('/', '--')
-  end
-
-  def extract_package_version_from(url)
-    url.match(/@\d+\.\d+\.\d+/)&.to_a&.first
   end
 end

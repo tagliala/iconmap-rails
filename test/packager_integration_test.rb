@@ -4,50 +4,58 @@ require 'test_helper'
 require 'iconmap/packager'
 
 class Iconmap::PackagerIntegrationTest < ActiveSupport::TestCase
-  setup { @packager = Iconmap::Packager.new(Rails.root.join('config/iconmap.rb')) }
-
-  test 'successful import against live service' do
-    assert_equal 'https://ga.jspm.io/npm:react@17.0.2/index.js', @packager.import('react@17.0.2')['react']
+  setup do
+    @config = Tempfile.new(['iconmap', '.rb'])
+    @config.write("# frozen_string_literal: true\n\n")
+    @config.rewind
+    @packager = Iconmap::Packager.new(@config.path)
   end
 
-  test 'missing import against live service' do
-    assert_nil @packager.import('react-is-not-this-package@17.0.2')
-  end
+  teardown { @config.close! }
 
-  test 'failed request against live bad domain' do
-    original_endpoint = Iconmap::Packager.endpoint
-    Iconmap::Packager.endpoint = URI('https://invalid./error')
-
-    assert_raises(Iconmap::Packager::HTTPError) do
-      @packager.import('missing-package-that-doesnt-exist@17.0.2')
-    end
-  ensure
-    Iconmap::Packager.endpoint = original_endpoint
-  end
-
-  test 'successful downloads from live service' do
+  test 'successful pin against live jsdelivr' do
     Dir.mktmpdir do |vendor_dir|
-      @packager = Iconmap::Packager.new \
-        Rails.root.join('config/iconmap.rb'),
-        vendor_path: Pathname.new(vendor_dir)
+      packager = Iconmap::Packager.new(@config.path, vendor_path: vendor_dir)
 
-      package_url = 'https://ga.jspm.io/npm:@github/webauthn-json@0.5.7/dist/main/webauthn-json.js'
-      @packager.download('@github/webauthn-json', package_url)
-      vendored_package_file = Pathname.new(vendor_dir).join('@github--webauthn-json.js')
+      pin_line = packager.pin('@fortawesome/fontawesome-free/svgs/brands/github.svg')
 
-      assert_path_exists vendored_package_file
-      assert_equal "// @github/webauthn-json@0.5.7 downloaded from #{package_url}", File.readlines(vendored_package_file).first.strip
+      assert_match(/pin '@fortawesome\/fontawesome-free\/svgs\/brands\/github\.svg' # @\d+/, pin_line)
 
-      package_url = 'https://ga.jspm.io/npm:react@17.0.2/index.js'
-      vendored_package_file = Pathname.new(vendor_dir).join('react.js')
-      @packager.download('react', package_url)
+      vendored_file = Pathname.new(vendor_dir).join('@fortawesome--fontawesome-free--svgs--brands--github.svg')
+      assert_path_exists vendored_file
 
-      assert_path_exists vendored_package_file
-      assert_equal "// react@17.0.2 downloaded from #{package_url}", File.readlines(vendored_package_file).first.strip
+      content = File.read(vendored_file)
+      assert_match(/<!-- @fortawesome\/fontawesome-free\/svgs\/brands\/github\.svg@\d+\.\d+\.\d+ downloaded from .* -->/, content)
+      assert_includes content, '<svg'
+    end
+  end
 
-      @packager.remove('react')
+  test 'successful pin with explicit version against live jsdelivr' do
+    Dir.mktmpdir do |vendor_dir|
+      packager = Iconmap::Packager.new(@config.path, vendor_path: vendor_dir)
 
-      assert_not File.exist?(Pathname.new(vendor_dir).join('react.js'))
+      pin_line = packager.pin('@fortawesome/fontawesome-free@6.5.0/svgs/brands/github.svg')
+
+      assert_equal %(pin '@fortawesome/fontawesome-free/svgs/brands/github.svg' # @6.5.0), pin_line
+
+      vendored_file = Pathname.new(vendor_dir).join('@fortawesome--fontawesome-free--svgs--brands--github.svg')
+      assert_path_exists vendored_file
+    end
+  end
+
+  test 'remove deletes vendored file and pin line' do
+    Dir.mktmpdir do |vendor_dir|
+      packager = Iconmap::Packager.new(@config.path, vendor_path: vendor_dir)
+
+      packager.pin('@fortawesome/fontawesome-free/svgs/brands/github.svg')
+
+      # Write pin to config so remove can find it
+      File.write(@config.path, "pin '@fortawesome/fontawesome-free/svgs/brands/github.svg' # @6.5.0\n")
+
+      packager.remove('@fortawesome/fontawesome-free/svgs/brands/github.svg')
+
+      vendored_file = Pathname.new(vendor_dir).join('@fortawesome--fontawesome-free--svgs--brands--github.svg')
+      assert_not File.exist?(vendored_file)
     end
   end
 end

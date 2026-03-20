@@ -8,7 +8,7 @@ Gem::Specification.new do |spec|
   spec.authors     = ['Geremia Taglialatela']
   spec.email       = 'tagliala.dev@gmail.com'
   spec.homepage    = 'https://github.com/tagliala/iconmap-rails'
-  spec.summary     = 'Use ESM with importmap to manage modern JavaScript in Rails without transpiling or bundling.'
+  spec.summary     = 'Manage SVG icons in Rails by vendoring them from npm packages via the jsdelivr CDN.'
   spec.license     = 'MIT'
 
   spec.metadata['homepage_uri'] = spec.homepage

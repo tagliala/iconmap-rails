@@ -15,7 +15,7 @@ class InstallerTest < ActiveSupport::TestCase
       assert_equal File.read("#{__dir__}/../lib/install/bin/iconmap"), File.read('bin/iconmap')
       assert_equal 0o700, File.stat('bin/iconmap').mode & 0o700
 
-      if defined?(Sprockets)
+      if File.exist?('app/assets/config/manifest.js')
         manifest = File.read('app/assets/config/manifest.js')
 
         assert_match '//= link_tree ../../../vendor/icons .svg', manifest

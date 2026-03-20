@@ -2,9 +2,9 @@ PATH
   remote: .
   specs:
     iconmap-rails (0.0.1)
-      actionpack (>= 7.1.0)
-      activesupport (>= 7.1.0)
-      railties (>= 7.1.0)
+      actionpack (>= 7.2.0)
+      activesupport (>= 7.2.0)
+      railties (>= 7.2.0)
 
 GEM
   remote: https://rubygems.org/
@@ -144,6 +144,7 @@ GEM
     minitest (6.0.2)
       drb (~> 2.0)
       prism (~> 1.5)
+    minitest-mock (5.27.0)
     net-imap (0.6.3)
       date
       net-protocol
@@ -310,6 +311,7 @@ DEPENDENCIES
   byebug
   capybara
   iconmap-rails!
+  minitest-mock
   rails (~> 8.0.0)
   rexml
   rubocop
