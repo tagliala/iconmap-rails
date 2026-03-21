@@ -18,6 +18,16 @@ module Iconmap
       app.config.iconmap.paths.each { |path| app.iconmap.draw(path) }
     end
 
+    initializer 'iconmap.reloader' do |app|
+      unless app.config.cache_classes
+        Iconmap::Reloader.new.tap do |reloader|
+          reloader.execute
+          app.reloaders << reloader
+          app.reloader.to_run { reloader.execute }
+        end
+      end
+    end
+
     initializer 'iconmap.cache_sweeper' do |app|
       if app.config.iconmap.sweep_cache && !app.config.cache_classes
         app.config.iconmap.cache_sweepers << app.root.join('vendor/icons')

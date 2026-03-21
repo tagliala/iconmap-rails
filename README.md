@@ -235,7 +235,7 @@ If you need to combine multiple maps (for engines or shared gems) see the "Compo
 
 ### Cache sweeping
 
-In development and test environments, Iconmap can automatically clear its internal caches when files change.
+In development and test environments Iconmap can automatically clear its internal caches when files change.
 
 The engine configures:
 
@@ -243,7 +243,12 @@ The engine configures:
 - `config.iconmap.sweep_cache` — whether to set up file watching (defaults to `Rails.env.local?`)
 - `config.iconmap.cache_sweepers` — extra directories to watch in addition to `vendor/icons`
 
-When any watched file changes, the icon map cache is cleared.
+Behavior:
+
+- An asset watcher clears the map cache when vendored SVGs in `vendor/icons` change (the watcher observes `*.svg`).
+- A dedicated `Iconmap::Reloader` watches the `config.iconmap.paths` (for example `config/iconmap.rb`) and automatically re-draws the map when pin files change — this avoids needing to restart the Rails server after editing pins in development.
+
+To opt out of automatic reloading set `config.iconmap.sweep_cache = false` in your environment config.
 
 ## Composing icon maps
 

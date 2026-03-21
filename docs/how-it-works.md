@@ -20,6 +20,11 @@ Serving:
 
 - `vendor/icons/` is added to the asset pipeline paths so you can reference the vendored SVGs with normal Rails asset helpers.
 
+
 Cache sweeping:
 
-- In local environments Iconmap configures a file watcher to clear its map cache when `config/iconmap.rb` or the watched vendor directories change.
+- By default the engine configures a file watcher that clears the map cache when files in the watched vendor directories change (the engine adds `vendor/icons` by default). The watcher is configured to observe SVG files only.
+
+- In addition, Iconmap now provides a dedicated `Iconmap::Reloader` that watches `config.iconmap.rb` (and any paths added to `config.iconmap.paths`) and automatically re-draws the map when those pin files change in development and test environments. This mirrors importmap-rails' behavior and ensures pin-file edits are picked up without restarting the app.
+
+- If you prefer the old behavior (only SVG files watched) you can disable the reloader by setting `config.iconmap.sweep_cache = false` in your environment configuration.
