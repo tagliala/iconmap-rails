@@ -1,22 +1,19 @@
 # frozen_string_literal: true
 
-require 'active_support'
-require 'active_support/core_ext/module/delegation'
-
 class Iconmap::Reloader
   delegate :execute_if_updated, :execute, :updated?, to: :updater
 
   def reload!
-    icon_map_paths.each { |path| Rails.application.iconmap.draw(path) }
+    iconmap_paths.each { |path| Rails.application.iconmap.draw(path) }
   end
 
   private
 
   def updater
-    @updater ||= config.file_watcher.new(icon_map_paths) { reload! }
+    @updater ||= config.file_watcher.new(iconmap_paths) { reload! }
   end
 
-  def icon_map_paths
+  def iconmap_paths
     config.iconmap.paths
   end
 

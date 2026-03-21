@@ -2,52 +2,89 @@
 
 require 'test_helper'
 require 'iconmap/packager'
+require 'minitest/mock'
 
 class Iconmap::PackagerIntegrationTest < ActiveSupport::TestCase
-  setup { @packager = Iconmap::Packager.new(Rails.root.join('config/iconmap.rb')) }
+  GITHUB_SVG     = File.read(File.expand_path('fixtures/files/api/fortawesome_github.svg', __dir__))
+  GITHUB_CDN_URL = 'https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/svgs/brands/github.svg'
 
-  test 'successful import against live service' do
-    assert_equal 'https://ga.jspm.io/npm:react@17.0.2/index.js', @packager.import('react@17.0.2')['react']
+  setup do
+    @config = Tempfile.new(['iconmap', '.rb'])
+    @config.write("# frozen_string_literal: true\n\n")
+    @config.rewind
   end
 
-  test 'missing import against live service' do
-    assert_nil @packager.import('react-is-not-this-package@17.0.2')
-  end
+  teardown { @config.close! }
 
-  test 'failed request against live bad domain' do
-    original_endpoint = Iconmap::Packager.endpoint
-    Iconmap::Packager.endpoint = URI('https://invalid./error')
-
-    assert_raises(Iconmap::Packager::HTTPError) do
-      @packager.import('missing-package-that-doesnt-exist@17.0.2')
-    end
-  ensure
-    Iconmap::Packager.endpoint = original_endpoint
-  end
-
-  test 'successful downloads from live service' do
+  test 'pin resolves version and downloads SVG' do
     Dir.mktmpdir do |vendor_dir|
-      @packager = Iconmap::Packager.new \
-        Rails.root.join('config/iconmap.rb'),
-        vendor_path: Pathname.new(vendor_dir)
+      packager = Iconmap::Packager.new(@config.path, vendor_path: vendor_dir)
 
-      package_url = 'https://ga.jspm.io/npm:@github/webauthn-json@0.5.7/dist/main/webauthn-json.js'
-      @packager.download('@github/webauthn-json', package_url)
-      vendored_package_file = Pathname.new(vendor_dir).join('@github--webauthn-json.js')
+      jsdelivr = Minitest::Mock.new
+      jsdelivr.expect :resolve_version, '7.2.0', ['@fortawesome/fontawesome-free']
+      jsdelivr.expect :download_url, GITHUB_CDN_URL,
+                      ['@fortawesome/fontawesome-free', '7.2.0', 'svgs/brands/github.svg']
+      jsdelivr.expect :fetch_file, GITHUB_SVG, [GITHUB_CDN_URL]
+      packager.instance_variable_set(:@jsdelivr, jsdelivr)
 
-      assert_path_exists vendored_package_file
-      assert_equal "// @github/webauthn-json@0.5.7 downloaded from #{package_url}", File.readlines(vendored_package_file).first.strip
+      pin_line = packager.pin('@fortawesome/fontawesome-free/svgs/brands/github.svg')
 
-      package_url = 'https://ga.jspm.io/npm:react@17.0.2/index.js'
-      vendored_package_file = Pathname.new(vendor_dir).join('react.js')
-      @packager.download('react', package_url)
+      assert_equal %(pin '@fortawesome/fontawesome-free/svgs/brands/github.svg' # @7.2.0), pin_line
 
-      assert_path_exists vendored_package_file
-      assert_equal "// react@17.0.2 downloaded from #{package_url}", File.readlines(vendored_package_file).first.strip
+      vendored_file = Pathname.new(vendor_dir).join('@fortawesome--fontawesome-free--svgs--brands--github.svg')
 
-      @packager.remove('react')
+      assert_path_exists vendored_file
 
-      assert_not File.exist?(Pathname.new(vendor_dir).join('react.js'))
+      content = File.read(vendored_file)
+
+      assert_match %r{<!-- @fortawesome/fontawesome-free/svgs/brands/github\.svg@7\.2\.0 downloaded from .* -->}, content
+      assert_includes content, '<svg'
+
+      jsdelivr.verify
+    end
+  end
+
+  test 'pin with explicit version skips resolve' do
+    cdn_url = 'https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.0/svgs/brands/github.svg'
+
+    Dir.mktmpdir do |vendor_dir|
+      packager = Iconmap::Packager.new(@config.path, vendor_path: vendor_dir)
+
+      jsdelivr = Minitest::Mock.new
+      jsdelivr.expect :download_url, cdn_url,
+                      ['@fortawesome/fontawesome-free', '6.5.0', 'svgs/brands/github.svg']
+      jsdelivr.expect :fetch_file, GITHUB_SVG, [cdn_url]
+      packager.instance_variable_set(:@jsdelivr, jsdelivr)
+
+      pin_line = packager.pin('@fortawesome/fontawesome-free@6.5.0/svgs/brands/github.svg')
+
+      assert_equal %(pin '@fortawesome/fontawesome-free/svgs/brands/github.svg' # @6.5.0), pin_line
+
+      vendored_file = Pathname.new(vendor_dir).join('@fortawesome--fontawesome-free--svgs--brands--github.svg')
+
+      assert_path_exists vendored_file
+
+      jsdelivr.verify
+    end
+  end
+
+  test 'remove deletes vendored file and pin' do
+    Dir.mktmpdir do |vendor_dir|
+      config = Tempfile.new(['iconmap', '.rb'])
+      config.write("pin '@fortawesome/fontawesome-free/svgs/brands/github.svg' # @7.2.0\n")
+      config.rewind
+
+      packager = Iconmap::Packager.new(config.path, vendor_path: vendor_dir)
+
+      vendored_file = Pathname.new(vendor_dir).join('@fortawesome--fontawesome-free--svgs--brands--github.svg')
+      File.write(vendored_file, GITHUB_SVG)
+
+      packager.remove('@fortawesome/fontawesome-free/svgs/brands/github.svg')
+
+      assert_not File.exist?(vendored_file)
+      assert_not packager.packaged?('@fortawesome/fontawesome-free/svgs/brands/github.svg')
+    ensure
+      config.close!
     end
   end
 end

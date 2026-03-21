@@ -2,71 +2,75 @@
 
 require 'test_helper'
 require 'iconmap/npm'
+require 'minitest/mock'
 
 class Iconmap::NpmIntegrationTest < ActiveSupport::TestCase
-  test 'successful outdated packages against live service' do
-    file = file_fixture('outdated_icon_map.rb')
-    npm = Iconmap::Npm.new(file)
+  AUDIT_IS_SVG = File.read(File.expand_path('fixtures/files/api/npm_audit_is_svg.json', __dir__))
+  AUDIT_FORTAWESOME = File.read(File.expand_path('fixtures/files/api/npm_audit_fortawesome.json', __dir__))
 
-    outdated_packages = npm.outdated_packages
+  test 'outdated packages' do
+    npm = Iconmap::Npm.new(file_fixture('outdated_icon_map.rb'))
 
-    assert_equal(1, outdated_packages.size)
-    assert_equal('md5', outdated_packages[0].name)
-    assert_equal('2.2.0', outdated_packages[0].current_version)
-    assert_match(/\d+\.\d+\.\d+/, outdated_packages[0].latest_version)
+    jsdelivr = Minitest::Mock.new
+    jsdelivr.expect :resolve_version, '7.2.0', ['@fortawesome/fontawesome-free']
+    npm.instance_variable_set(:@jsdelivr, jsdelivr)
+
+    outdated = npm.outdated_packages
+
+    assert_equal 1, outdated.size
+    assert_equal '@fortawesome/fontawesome-free/svgs/brands/github.svg', outdated[0].icon_path
+    assert_equal '6.0.0', outdated[0].current_version
+    assert_equal '7.2.0', outdated[0].latest_version
+
+    jsdelivr.verify
   end
 
-  test 'failed outdated packages request against live bad domain' do
-    file = file_fixture('outdated_icon_map.rb')
-    npm = Iconmap::Npm.new(file)
+  test 'outdated packages HTTPError propagates' do
+    npm = Iconmap::Npm.new(file_fixture('outdated_icon_map.rb'))
 
-    original_base_uri = Iconmap::Npm.base_uri
-    Iconmap::Npm.base_uri = URI('https://invalid.error')
-
-    assert_raises(Iconmap::Npm::HTTPError) do
-      npm.outdated_packages
+    fake_jsdelivr = Object.new
+    def fake_jsdelivr.resolve_version(_pkg)
+      raise Iconmap::Jsdelivr::HTTPError, 'transport error'
     end
-  ensure
-    Iconmap::Npm.base_uri = original_base_uri
+    npm.instance_variable_set(:@jsdelivr, fake_jsdelivr)
+
+    assert_raises(Iconmap::Jsdelivr::HTTPError) { npm.outdated_packages }
   end
 
-  test 'successful vulnerable packages against live service' do
-    file = file_fixture('vulnerable_icon_map.rb')
-    npm = Iconmap::Npm.new(file)
+  test 'vulnerable packages' do
+    npm = Iconmap::Npm.new(file_fixture('vulnerable_icon_map.rb'))
 
-    vulnerable_packages = npm.vulnerable_packages
+    response = Struct.new(:code, :body).new('200', AUDIT_IS_SVG)
+    npm.stub(:post_json, response) do
+      vulnerable = npm.vulnerable_packages
 
-    assert_operator(vulnerable_packages.size, :>=, 2)
+      assert_equal 2, vulnerable.size
+      assert_equal 'is-svg', vulnerable[0].name
+      assert_equal 'is-svg', vulnerable[1].name
 
-    assert_equal('is-svg', vulnerable_packages[0].name)
-    assert_equal('is-svg', vulnerable_packages[1].name)
-
-    severities = vulnerable_packages.map(&:severity)
-
-    assert_includes(severities, 'high')
-
-    vulnerabilities = vulnerable_packages.map(&:vulnerability)
-
-    assert_includes(vulnerabilities, 'ReDOS in IS-SVG')
-    assert_includes(vulnerabilities, 'Regular Expression Denial of Service (ReDoS)')
-
-    vulnerable_versions = vulnerable_packages.map(&:vulnerable_versions)
-
-    assert_includes(vulnerable_versions, '>=2.1.0 <4.3.0')
-    assert_includes(vulnerable_versions, '>=2.1.0 <4.2.2')
-  end
-
-  test 'failed vulnerable packages request against live bad domain' do
-    file = file_fixture('vulnerable_icon_map.rb')
-    npm = Iconmap::Npm.new(file)
-
-    original_base_uri = Iconmap::Npm.base_uri
-    Iconmap::Npm.base_uri = URI('https://invalid.error')
-
-    assert_raises(Iconmap::Npm::HTTPError) do
-      npm.vulnerable_packages
+      assert_includes vulnerable.map(&:severity), 'high'
+      assert_includes vulnerable.map(&:vulnerability), 'ReDOS in IS-SVG'
+      assert_includes vulnerable.map(&:vulnerability), 'Regular Expression Denial of Service (ReDoS)'
+      assert_includes vulnerable.map(&:vulnerable_versions), '>=2.1.0 <4.3.0'
+      assert_includes vulnerable.map(&:vulnerable_versions), '>=2.1.0 <4.2.2'
     end
-  ensure
-    Iconmap::Npm.base_uri = original_base_uri
+  end
+
+  test 'no vulnerabilities returns empty' do
+    npm = Iconmap::Npm.new(file_fixture('outdated_icon_map.rb'))
+
+    response = Struct.new(:code, :body).new('200', AUDIT_FORTAWESOME)
+
+    npm.stub(:post_json, response) do
+      assert_empty npm.vulnerable_packages
+    end
+  end
+
+  test 'vulnerable packages HTTPError propagates' do
+    npm = Iconmap::Npm.new(file_fixture('vulnerable_icon_map.rb'))
+
+    npm.stub(:post_json, proc { raise Iconmap::Npm::HTTPError, 'transport error' }) do
+      assert_raises(Iconmap::Npm::HTTPError) { npm.vulnerable_packages }
+    end
   end
 end

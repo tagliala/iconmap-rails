@@ -1,26 +1,26 @@
 # frozen_string_literal: true
 
 require 'test_helper'
-require 'json'
+require 'iconmap/commands'
+require 'minitest/mock'
 
 class CommandsTest < ActiveSupport::TestCase
   include ActiveSupport::Testing::Isolation
+
+  GITHUB_SVG     = File.read(File.expand_path('fixtures/files/api/fortawesome_github.svg', __dir__))
+  GITHUB_CDN_URL = 'https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/svgs/brands/github.svg'
 
   setup do
     @tmpdir = Dir.mktmpdir
     FileUtils.cp_r("#{__dir__}/dummy", @tmpdir)
     Dir.chdir("#{@tmpdir}/dummy")
-    FileUtils.cp("#{__dir__}/../lib/install/bin/iconmap", 'bin')
+    FileUtils.mkdir_p('bin')
+    FileUtils.cp("#{__dir__}/../lib/install/bin/iconmap", 'bin/iconmap')
+    File.chmod(0o755, 'bin/iconmap')
   end
 
   teardown do
     FileUtils.remove_entry(@tmpdir) if @tmpdir
-  end
-
-  test 'json command prints JSON with imports' do
-    out, = run_iconmap_command('json')
-
-    assert_includes JSON.parse(out), 'imports'
   end
 
   test 'update command prints message of no outdated packages' do
@@ -29,40 +29,58 @@ class CommandsTest < ActiveSupport::TestCase
     assert_includes out, 'No outdated'
   end
 
-  test 'update command prints confirmation of pin with outdated packages' do
-    @tmpdir = Dir.mktmpdir
-    FileUtils.cp_r("#{__dir__}/dummy", @tmpdir)
-    Dir.chdir("#{@tmpdir}/dummy")
-    FileUtils.cp("#{__dir__}/fixtures/files/outdated_icon_map.rb", "#{@tmpdir}/dummy/config/iconmap.rb")
-    FileUtils.cp("#{__dir__}/../lib/install/bin/iconmap", 'bin')
+  test 'outdated command shows full icon paths in table' do
+    File.write('config/iconmap.rb', "pin '@fortawesome/fontawesome-free/svgs/brands/github.svg' # @6.0.0\n")
 
-    out, _err = run_iconmap_command('update')
+    mock = Minitest::Mock.new
+    mock.expect :resolve_version, '7.2.0', ['@fortawesome/fontawesome-free']
+    Iconmap::Jsdelivr.stub(:new, mock) do
+      out, _err = run_iconmap_command('outdated')
 
-    assert_includes out, 'Pinning'
+      assert_includes out, '@fortawesome/fontawesome-free/svgs/brands/github.svg'
+      assert_includes out, '|'
+      assert_includes out, 'outdated'
+    end
   end
 
-  test 'pristine command redownloads all pinned packages' do
-    @tmpdir = Dir.mktmpdir
-    FileUtils.cp_r("#{__dir__}/dummy", @tmpdir)
-    Dir.chdir("#{@tmpdir}/dummy")
-    FileUtils.cp("#{__dir__}/fixtures/files/outdated_icon_map.rb", "#{@tmpdir}/dummy/config/iconmap.rb")
-    FileUtils.cp("#{__dir__}/../lib/install/bin/iconmap", 'bin')
-    out, _err = run_iconmap_command('pin', 'md5@2.2.0')
+  test 'pin command pins an icon' do
+    mock_jsdelivr = build_github_jsdelivr_mock
 
-    assert_includes out, 'Pinning "md5" to vendor/javascript/md5.js via download from https://ga.jspm.io/npm:md5@2.2.0/md5.js'
+    Iconmap::Jsdelivr.stub(:new, mock_jsdelivr) do
+      out, _err = run_iconmap_command('pin', '@fortawesome/fontawesome-free/svgs/brands/github.svg')
 
-    original = File.read("#{@tmpdir}/dummy/vendor/javascript/md5.js")
-    File.write("#{@tmpdir}/dummy/vendor/javascript/md5.js", 'corrupted')
+      assert_includes out, 'Pinning'
+    end
 
-    out, _err = run_iconmap_command('pristine')
+    assert_includes File.read('config/iconmap.rb'), "pin '@fortawesome/fontawesome-free/svgs/brands/github.svg'"
 
-    assert_includes out, 'Downloading "md5" to vendor/javascript/md5.js from https://ga.jspm.io/npm:md5@2.2.0'
-    assert_equal original, File.read("#{@tmpdir}/dummy/vendor/javascript/md5.js")
+    vendored_file = Dir.glob('vendor/icons/@fortawesome--fontawesome-free--svgs--brands--github.svg').first
+
+    assert vendored_file, 'Vendored SVG file should exist'
+  end
+
+  test 'packages command lists pinned packages' do
+    Iconmap::Jsdelivr.stub(:new, build_github_jsdelivr_mock) do
+      run_iconmap_command('pin', '@fortawesome/fontawesome-free/svgs/brands/github.svg')
+    end
+
+    out, _err = run_iconmap_command('packages')
+
+    assert_includes out, '@fortawesome/fontawesome-free'
   end
 
   private
 
   def run_iconmap_command(command, *args)
-    capture_subprocess_io { system('bin/iconmap', command, *args, exception: true) }
+    capture_subprocess_io { system('bin/iconmap', command, *args) }
+  end
+
+  def build_github_jsdelivr_mock
+    mock = Minitest::Mock.new
+    mock.expect :resolve_version, '7.2.0', ['@fortawesome/fontawesome-free']
+    mock.expect :download_url, GITHUB_CDN_URL,
+                ['@fortawesome/fontawesome-free', '7.2.0', 'svgs/brands/github.svg']
+    mock.expect :fetch_file, GITHUB_SVG, [GITHUB_CDN_URL]
+    mock
   end
 end

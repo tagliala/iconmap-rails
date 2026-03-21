@@ -8,7 +8,7 @@ Gem::Specification.new do |spec|
   spec.authors     = ['Geremia Taglialatela']
   spec.email       = 'tagliala.dev@gmail.com'
   spec.homepage    = 'https://github.com/tagliala/iconmap-rails'
-  spec.summary     = 'Use ESM with importmap to manage modern JavaScript in Rails without transpiling or bundling.'
+  spec.summary     = 'Manage SVG icons in Rails by vendoring them from npm packages via the jsdelivr CDN.'
   spec.license     = 'MIT'
 
   spec.metadata['homepage_uri'] = spec.homepage
@@ -17,9 +17,9 @@ Gem::Specification.new do |spec|
 
   spec.files = Dir['{app,lib}/**/*', 'MIT-LICENSE', 'Rakefile', 'README.md']
 
-  spec.required_ruby_version = '>= 3.1.0'
+  spec.required_ruby_version = '>= 3.2.0'
 
-  spec.add_dependency 'actionpack', '>= 7.1.0'
-  spec.add_dependency 'activesupport', '>= 7.1.0'
-  spec.add_dependency 'railties', '>= 7.1.0'
+  spec.add_dependency 'actionpack', '>= 7.2.0'
+  spec.add_dependency 'activesupport', '>= 7.2.0'
+  spec.add_dependency 'railties', '>= 7.2.0'
 end

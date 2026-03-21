@@ -7,72 +7,80 @@ require 'minitest/mock'
 class Iconmap::NpmTest < ActiveSupport::TestCase
   setup { @npm = Iconmap::Npm.new(file_fixture('outdated_icon_map.rb')) }
 
-  test 'successful outdated packages with mock' do
-    response = { 'dist-tags' => { 'latest' => '2.3.0' } }.to_json
+  test 'packages_with_versions extracts package name and version from pin lines' do
+    packages = @npm.packages_with_versions
 
-    @npm.stub(:get_json, response) do
-      outdated_packages = @npm.outdated_packages
-
-      assert_equal(1, outdated_packages.size)
-      assert_equal('md5', outdated_packages[0].name)
-      assert_equal('2.2.0', outdated_packages[0].current_version)
-      assert_equal('2.3.0', outdated_packages[0].latest_version)
-    end
+    assert_equal 1, packages.size
+    assert_equal '@fortawesome/fontawesome-free', packages[0][0]
+    assert_equal '6.0.0', packages[0][1]
+    assert_equal '@fortawesome/fontawesome-free/svgs/brands/github.svg', packages[0][2]
   end
 
-  test 'successful outdated packages using single-quotes with mock' do
+  test 'packages_with_versions with single quotes' do
     npm = Iconmap::Npm.new(file_fixture('single_quote_outdated_icon_map.rb'))
-    response = { 'dist-tags' => { 'latest' => '2.3.0' } }.to_json
+    packages = npm.packages_with_versions
 
-    npm.stub(:get_json, response) do
-      outdated_packages = npm.outdated_packages
-
-      assert_equal(1, outdated_packages.size)
-      assert_equal('md5', outdated_packages[0].name)
-      assert_equal('2.2.0', outdated_packages[0].current_version)
-      assert_equal('2.3.0', outdated_packages[0].latest_version)
-    end
+    assert_equal 1, packages.size
+    assert_equal '@fortawesome/fontawesome-free', packages[0][0]
+    assert_equal '6.0.0', packages[0][1]
+    assert_equal '@fortawesome/fontawesome-free/svgs/brands/github.svg', packages[0][2]
   end
 
-  test 'successful outdated packages using single-quotes and without CDN with mock' do
+  test 'packages_with_versions without CDN' do
     npm = Iconmap::Npm.new(file_fixture('single_quote_outdated_icon_map_without_cdn.rb'))
-    response = { 'dist-tags' => { 'latest' => '2.3.0' } }.to_json
+    packages = npm.packages_with_versions
 
-    npm.stub(:get_json, response) do
-      outdated_packages = npm.outdated_packages
-
-      assert_equal(1, outdated_packages.size)
-      assert_equal('md5', outdated_packages[0].name)
-      assert_equal('2.2.0', outdated_packages[0].current_version)
-      assert_equal('2.3.0', outdated_packages[0].latest_version)
-    end
+    assert_equal 1, packages.size
+    assert_equal '@fortawesome/fontawesome-free', packages[0][0]
+    assert_equal '6.0.0', packages[0][1]
+    assert_equal '@fortawesome/fontawesome-free/svgs/brands/github.svg', packages[0][2]
   end
 
-  test 'missing outdated packages with mock' do
-    response = { 'error' => 'Not found' }.to_json
+  test 'successful outdated packages with mock' do
+    jsdelivr = Minitest::Mock.new
+    jsdelivr.expect :resolve_version, '7.0.0', ['@fortawesome/fontawesome-free']
 
-    @npm.stub(:get_json, response) do
-      outdated_packages = @npm.outdated_packages
+    @npm.instance_variable_set(:@jsdelivr, jsdelivr)
+    outdated_packages = @npm.outdated_packages
 
-      assert_equal(1, outdated_packages.size)
-      assert_equal('md5', outdated_packages[0].name)
-      assert_equal('2.2.0', outdated_packages[0].current_version)
-      assert_equal('Not found', outdated_packages[0].error)
-    end
+    assert_equal 1, outdated_packages.size
+    assert_equal '@fortawesome/fontawesome-free/svgs/brands/github.svg', outdated_packages[0].icon_path
+    assert_equal '6.0.0', outdated_packages[0].current_version
+    assert_equal '7.0.0', outdated_packages[0].latest_version
+
+    jsdelivr.verify
   end
 
-  test 'failed outdated packages request with mock' do
-    Net::HTTP.stub(:start, proc { raise 'Unexpected Error' }) do
-      assert_raises(Iconmap::Npm::HTTPError) do
-        @npm.outdated_packages
-      end
-    end
+  test 'outdated packages when resolve returns nil' do
+    jsdelivr = Minitest::Mock.new
+    jsdelivr.expect :resolve_version, nil, ['@fortawesome/fontawesome-free']
+
+    @npm.instance_variable_set(:@jsdelivr, jsdelivr)
+    outdated_packages = @npm.outdated_packages
+
+    assert_equal 1, outdated_packages.size
+    assert_equal '@fortawesome/fontawesome-free/svgs/brands/github.svg', outdated_packages[0].icon_path
+    assert_equal 'Response error', outdated_packages[0].error
+
+    jsdelivr.verify
+  end
+
+  test 'outdated packages when package is up to date returns empty' do
+    jsdelivr = Minitest::Mock.new
+    jsdelivr.expect :resolve_version, '6.0.0', ['@fortawesome/fontawesome-free']
+
+    @npm.instance_variable_set(:@jsdelivr, jsdelivr)
+    outdated_packages = @npm.outdated_packages
+
+    assert_empty outdated_packages
+
+    jsdelivr.verify
   end
 
   test 'successful vulnerable packages with mock' do
     response = Class.new do
       def body
-        { 'md5' => [{ 'title' => 'Unsafe hashing', 'severity' => 'high', 'vulnerable_versions' => '<42.0.0' }] }.to_json
+        { '@fortawesome/fontawesome-free' => [{ 'title' => 'XSS in SVG', 'severity' => 'high', 'vulnerable_versions' => '<6.5.0' }] }.to_json
       end
 
       def code = '200'
@@ -81,11 +89,11 @@ class Iconmap::NpmTest < ActiveSupport::TestCase
     @npm.stub(:post_json, response) do
       vulnerable_packages = @npm.vulnerable_packages
 
-      assert_equal(1, vulnerable_packages.size)
-      assert_equal('md5', vulnerable_packages[0].name)
-      assert_equal('Unsafe hashing', vulnerable_packages[0].vulnerability)
-      assert_equal('high', vulnerable_packages[0].severity)
-      assert_equal('<42.0.0', vulnerable_packages[0].vulnerable_versions)
+      assert_equal 1, vulnerable_packages.size
+      assert_equal '@fortawesome/fontawesome-free', vulnerable_packages[0].name
+      assert_equal 'XSS in SVG', vulnerable_packages[0].vulnerability
+      assert_equal 'high', vulnerable_packages[0].severity
+      assert_equal '<6.5.0', vulnerable_packages[0].vulnerable_versions
     end
   end
 
@@ -94,16 +102,6 @@ class Iconmap::NpmTest < ActiveSupport::TestCase
       assert_raises(Iconmap::Npm::HTTPError) do
         @npm.vulnerable_packages
       end
-    end
-  end
-
-  test 'return latest version response is a String type' do
-    response = 'version not found'.to_json
-
-    @npm.stub(:get_json, response) do
-      outdated_packages = @npm.outdated_packages
-
-      assert_equal('version not found', outdated_packages[0].latest_version)
     end
   end
 end

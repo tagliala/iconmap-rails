@@ -6,9 +6,6 @@ git_source(:github) { |repo| "https://github.com/#{repo}.git" }
 # Specify your gem's dependencies in iconmap-rails.gemspec.
 gemspec
 
-gem 'rails', '~> 8.0.0'
-gem 'sprockets-rails'
-
 gem 'sqlite3', '~> 2.5'
 
 group :development do
@@ -24,6 +21,8 @@ group :development do
 end
 
 group :test do
+  gem 'minitest-mock'
+
   gem 'stimulus-rails'
   gem 'turbo-rails'
 

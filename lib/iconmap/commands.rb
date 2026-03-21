@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'thor'
+require 'active_support/core_ext/string/inflections'
 require_relative 'packager'
 require_relative 'npm'
 
@@ -12,64 +13,47 @@ class Iconmap::Commands < Thor
   end
 
   desc 'pin [*PACKAGES]', 'Pin new icons'
-  option :env, type: :string, aliases: :e, default: 'production'
-  option :from, type: :string, aliases: :f, default: 'jspm'
   def pin(*packages)
-    if imports = packager.import(*packages, env: options[:env], from: options[:from])
-      imports.each do |package, url|
-        puts %(Pinning "#{package}" to #{packager.vendor_path}/#{package} via download from #{url})
-        packager.download(package, url)
-        pin = packager.vendored_pin_for(package, url)
+    packages.each do |package|
+      pin_line = packager.pin(package)
+      parsed = packager.parse_icon_path(package)
+      package_with_path = "#{parsed[:package]}/#{parsed[:path]}"
 
-        if packager.packaged?(package)
-          gsub_file('config/iconmap.rb', /^pin "#{package}".*$/, pin, verbose: false)
-        else
-          append_to_file('config/iconmap.rb', "#{pin}\n", verbose: false)
-        end
+      puts %(Pinning "#{package_with_path}" to #{packager.vendor_path}/#{packager.vendored_filename(parsed[:package], parsed[:path])})
+
+      if packager.packaged?(package_with_path)
+        gsub_file('config/iconmap.rb', /^pin ['"]#{Regexp.escape(package_with_path)}['"].*$/, pin_line, verbose: false)
+      else
+        append_to_file('config/iconmap.rb', "#{pin_line}\n", verbose: false)
       end
-    else
-      puts "Couldn't find any icons in #{packages.inspect} on #{options[:from]}"
     end
   end
 
   desc 'unpin [*PACKAGES]', 'Unpin existing packages'
-  option :env, type: :string, aliases: :e, default: 'production'
-  option :from, type: :string, aliases: :f, default: 'jspm'
   def unpin(*packages)
-    if imports = packager.import(*packages, env: options[:env], from: options[:from])
-      imports.each_key do |package|
-        if packager.packaged?(package)
-          puts %(Unpinning and removing "#{package}")
-          packager.remove(package)
-        end
+    packages.each do |package|
+      parsed = packager.parse_icon_path(package)
+      package_with_path = "#{parsed[:package]}/#{parsed[:path]}"
+
+      if packager.packaged?(package_with_path)
+        puts %(Unpinning and removing "#{package_with_path}")
+        packager.remove(package_with_path)
       end
-    else
-      puts "Couldn't find any packages in #{packages.inspect} on #{options[:from]}"
     end
   end
 
-  desc 'pristine', 'Redownload all pinned packages'
-  option :env, type: :string, aliases: :e, default: 'production'
-  option :from, type: :string, aliases: :f, default: 'jspm'
+  desc 'pristine', 'Redownload all pinned icons'
   def pristine
-    packages = npm.packages_with_versions.map do |p, v|
-      v.blank? ? p : [p, v].join('@')
-    end
-
-    if imports = packager.import(*packages, env: options[:env], from: options[:from])
-      imports.each do |package, url|
-        puts %(Downloading "#{package}" to #{packager.vendor_path}/#{package} from #{url})
-        packager.download(package, url)
+    npm.packages_with_versions.each do |package, version|
+      # Find all pins for this package to get full paths
+      iconmap_content = File.read('config/iconmap.rb')
+      iconmap_content.scan(%r{^pin ['"]#{Regexp.escape(package)}/([^'"]+)['"].*#\s*@#{Regexp.escape(version)}}).each do |path,|
+        package_with_path = "#{package}/#{path}"
+        url = Iconmap::Jsdelivr.new.download_url(package, version, path)
+        puts %(Downloading "#{package_with_path}" to #{packager.vendor_path}/#{packager.vendored_filename(package, path)} from #{url})
+        packager.download(package, version, path, url)
       end
-    else
-      puts "Couldn't find any packages in #{packages.inspect} on #{options[:from]}"
     end
-  end
-
-  desc 'json', 'Show the full iconmap in json'
-  def json
-    require Rails.root.join('config/environment')
-    puts Rails.application.iconmap.to_json(resolver: ActionController::Base.helpers)
   end
 
   desc 'audit', 'Run a security audit'
@@ -97,7 +81,7 @@ class Iconmap::Commands < Thor
   def outdated
     if (outdated_packages = npm.outdated_packages).any?
       table = [%w[Icon Current Latest]]
-      outdated_packages.each { |p| table << [p.name, p.current_version, p.latest_version || p.error] }
+      outdated_packages.each { |p| table << [p.icon_path, p.current_version, p.latest_version || p.error] }
 
       puts_table(table)
       packages = 'icon'.pluralize(outdated_packages.size)
@@ -112,7 +96,9 @@ class Iconmap::Commands < Thor
   desc 'update', 'Update outdated icon pins'
   def update
     if (outdated_packages = npm.outdated_packages).any?
-      pin(*outdated_packages.map(&:name))
+      outdated_packages.each do |pkg|
+        pin(pkg.icon_path)
+      end
     else
       puts 'No outdated icons found'
     end
@@ -120,7 +106,13 @@ class Iconmap::Commands < Thor
 
   desc 'packages', 'Print out icons with version numbers'
   def packages
-    puts(npm.packages_with_versions.map { |x| x.join(' ') })
+    # Print each package only once (multiple pins may reference the same npm package)
+    seen = {}
+    npm.packages_with_versions.each do |package, version, _|
+      seen[package] ||= version
+    end
+
+    puts(seen.map { |package, version| "#{package} #{version}" })
   end
 
   private
@@ -131,17 +123,6 @@ class Iconmap::Commands < Thor
 
   def npm
     @npm ||= Iconmap::Npm.new
-  end
-
-  def remove_line_from_file(path, pattern)
-    path = File.expand_path(path, destination_root)
-
-    all_lines = File.readlines(path)
-    with_lines_removed = all_lines.select { |line| line !~ pattern }
-
-    File.open(path, 'w') do |file|
-      with_lines_removed.each { |line| file.write(line) }
-    end
   end
 
   def puts_table(array)

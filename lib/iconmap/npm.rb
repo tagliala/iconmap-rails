@@ -3,10 +3,17 @@
 require 'net/http'
 require 'uri'
 require 'json'
+require_relative 'jsdelivr'
 
 class Iconmap::Npm
-  Error     = Class.new(StandardError)
-  HTTPError = Class.new(Error)
+  class Error < StandardError
+  end
+
+  class HTTPError < Error
+  end
+
+  OutdatedPackage   = Struct.new(:package, :icon_path, :current_version, :latest_version, :error)
+  VulnerablePackage = Struct.new(:name, :severity, :vulnerable_versions, :vulnerability)
 
   singleton_class.attr_accessor :base_uri
   self.base_uri = URI('https://registry.npmjs.org')
@@ -16,23 +23,21 @@ class Iconmap::Npm
   end
 
   def outdated_packages
-    packages_with_versions.each.with_object([]) do |(package, current_version), outdated_packages|
-      outdated_package = OutdatedPackage.new(name: package,
-                                             current_version: current_version)
+    packages_with_versions.each.with_object([]) do |(package, current_version, icon_path), outdated_packages|
+      outdated_package = OutdatedPackage.new(package: package, icon_path: icon_path, current_version: current_version)
 
-      if !(response = get_package(normalize_package_name(package)))
+      latest_version = jsdelivr.resolve_version(package)
+
+      if latest_version.nil?
         outdated_package.error = 'Response error'
-      elsif (error = response['error'])
-        outdated_package.error = error
-      else
-        latest_version = find_latest_version(response)
-        next unless outdated?(current_version, latest_version)
-
+      elsif outdated?(current_version, latest_version)
         outdated_package.latest_version = latest_version
+      else
+        next
       end
 
       outdated_packages << outdated_package
-    end.sort_by(&:name)
+    end.sort_by(&:icon_path)
   end
 
   def vulnerable_packages
@@ -47,24 +52,20 @@ class Iconmap::Npm
   end
 
   def packages_with_versions
-    # We cannot use the name after "pin" because some dependencies are loaded from inside packages
-    # Eg. pin "buffer", to: "https://ga.jspm.io/npm:@jspm/core@2.0.0-beta.19/nodelibs/browser/buffer.js"
-
-    iconmap.scan(%r{^pin .*(?<=npm:|npm/|skypack\.dev/|unpkg\.com/)(.*)(?=@\d+\.\d+\.\d+)@(\d+\.\d+\.\d+(?:[^/\s["']]*)).*$}) |
-      iconmap.scan(/^pin ["']([^["']]*)["'].* #.*@(\d+\.\d+\.\d+(?:[^\s]*)).*$/)
+    iconmap.scan(/^pin ['"]([^'"]+)['"].*#\s*@(\S+)/).map do |package_with_path, version|
+      package = extract_package_name(package_with_path)
+      [package, version, package_with_path]
+    end
   end
 
   private
 
-  OutdatedPackage   = Struct.new(:name, :current_version, :latest_version, :error, keyword_init: true)
-  VulnerablePackage = Struct.new(:name, :severity, :vulnerable_versions, :vulnerability, keyword_init: true)
-
-  # Normalize the package name (remove any trailing paths)
-  def normalize_package_name(name)
-    if name.start_with?('@')
-      name.split('/', 3)[0..1].join('/')
+  def extract_package_name(package_with_path)
+    if package_with_path.start_with?('@')
+      parts = package_with_path.split('/', 3)
+      "#{parts[0]}/#{parts[1]}"
     else
-      name.split('/', 2).first
+      package_with_path.split('/', 2).first
     end
   end
 
@@ -72,40 +73,8 @@ class Iconmap::Npm
     @iconmap ||= File.read(@iconmap_path)
   end
 
-  def get_package(package)
-    uri = self.class.base_uri.dup
-    uri.path = '/' + package
-    response = get_json(uri)
-
-    JSON.parse(response)
-  rescue JSON::ParserError
-    nil
-  end
-
-  def get_json(uri)
-    request = Net::HTTP::Get.new(uri)
-    request['Content-Type'] = 'application/json'
-
-    response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) do |http|
-      http.request(request)
-    end
-
-    response.body
-  rescue StandardError => e
-    raise HTTPError, "Unexpected transport error (#{e.class}: #{e.message})"
-  end
-
-  def find_latest_version(response)
-    latest_version = response.is_a?(String) ? response : response.dig('dist-tags', 'latest')
-    return latest_version if latest_version
-
-    return unless response['versions']
-
-    response['versions'].keys.map do |v|
-      Gem::Version.new(v)
-    rescue StandardError
-      nil
-    end.compact.sort.last
+  def jsdelivr
+    @jsdelivr ||= Iconmap::Jsdelivr.new
   end
 
   def outdated?(current_version, latest_version)
@@ -118,7 +87,7 @@ class Iconmap::Npm
     uri = self.class.base_uri.dup
     uri.path = '/-/npm/v1/security/advisories/bulk'
 
-    body = packages_with_versions.each.with_object({}) do |(package, version), data|
+    body = packages_with_versions.each.with_object({}) do |(package, version, _icon_path), data|
       data[package] ||= []
       data[package] << version
     end

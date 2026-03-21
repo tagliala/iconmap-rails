@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative 'map'
+require_relative 'reloader'
 
 # Use Rails.application.iconmap to access the map
 Rails::Application.send(:attr_accessor, :iconmap)
@@ -11,9 +12,6 @@ module Iconmap
     config.iconmap.paths = []
     config.iconmap.sweep_cache = Rails.env.local?
     config.iconmap.cache_sweepers = []
-    config.iconmap.rescuable_asset_errors = []
-
-    config.autoload_once_paths = %W[#{root}/app/helpers #{root}/app/controllers]
 
     initializer 'iconmap' do |app|
       app.iconmap = Iconmap::Map.new
@@ -44,29 +42,18 @@ module Iconmap
 
     initializer 'iconmap.assets' do |app|
       if app.config.respond_to?(:assets)
-        app.config.assets.paths << Rails.root.join('vendor/icons')
-      end
-    end
+        # When Sprockets and Propshaft are both present the asset paths
+        # can contain framework-specific objects. To avoid passing non-string
+        # values into Sprockets internals (which call File.expand_path) make
+        # sure to push a plain string for Sprockets. Propshaft accepts
+        # Pathname values, so prefer that when only Propshaft is available.
+        path = Rails.root.join('vendor/icons')
 
-    initializer 'iconmap.concerns' do
-      ActiveSupport.on_load(:action_controller_base) do
-        extend Iconmap::Freshness
-      end
-    end
-
-    initializer 'iconmap.helpers' do
-      ActiveSupport.on_load(:action_controller_base) do
-        helper Iconmap::IconmapTagsHelper
-      end
-    end
-
-    initializer 'iconmap.rescuable_asset_errors' do |app|
-      if defined?(Propshaft)
-        app.config.iconmap.rescuable_asset_errors << Propshaft::MissingAssetError
-      end
-
-      if defined?(Sprockets::Rails)
-        app.config.iconmap.rescuable_asset_errors << Sprockets::Rails::Helper::AssetNotFound
+        app.config.assets.paths << if defined?(Sprockets)
+                                     path.to_s
+                                   else
+                                     path
+                                   end
       end
     end
   end

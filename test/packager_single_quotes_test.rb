@@ -5,20 +5,25 @@ require 'iconmap/packager'
 
 class Iconmap::PackagerSingleQuotesTest < ActiveSupport::TestCase
   setup do
-    @single_quote_config_name = Rails.root.join('config/iconmap_with_single_quotes.rb')
-    File.write(@single_quote_config_name, File.read(Rails.root.join('config/iconmap.rb')).tr('"', "'"))
-    @packager = Iconmap::Packager.new(@single_quote_config_name)
+    @config = Tempfile.new(['iconmap', '.rb'])
+    @config.write("# frozen_string_literal: true\n\npin '@fortawesome/fontawesome-free/svgs/brands/github.svg' # @6.0.0\n")
+    @config.rewind
+    @packager = Iconmap::Packager.new(@config.path)
   end
 
-  teardown { File.delete(@single_quote_config_name) }
+  teardown { @config.close! }
 
   test 'packaged? with single quotes' do
-    assert @packager.packaged?('md5')
-    assert_not @packager.packaged?('md5-extension')
+    assert @packager.packaged?('@fortawesome/fontawesome-free/svgs/brands/github.svg')
+    assert_not @packager.packaged?('@fortawesome/fontawesome-free/svgs/brands/instagram.svg')
   end
 
   test 'remove package with single quotes' do
-    assert @packager.remove('md5')
-    assert_not @packager.packaged?('md5')
+    Dir.mktmpdir do |vendor_dir|
+      packager = Iconmap::Packager.new(@config.path, vendor_path: vendor_dir)
+      packager.remove('@fortawesome/fontawesome-free/svgs/brands/github.svg')
+
+      assert_not packager.packaged?('@fortawesome/fontawesome-free/svgs/brands/github.svg')
+    end
   end
 end

@@ -1,6 +1,6 @@
 inherit_from: .rubocop_todo.yml
 
-require:
+plugins:
   - rubocop-capybara
   - rubocop-minitest
   - rubocop-packaging
@@ -9,8 +9,8 @@ require:
   - rubocop-rake
 
 AllCops:
-  TargetRailsVersion: 7.1
-  TargetRubyVersion: 3.1
+  TargetRailsVersion: 7.2
+  TargetRubyVersion: 3.2
   NewCops: enable
   DisplayStyleGuide: true
   ExtraDetails: true

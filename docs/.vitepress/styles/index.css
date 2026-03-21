@@ -1,0 +1,17 @@
+:root {
+  --vp-c-accent: #1e88ff; /* blue accent */
+}
+
+/* header brand color */
+.vp-nav__logo {
+  color: var(--vp-c-accent) !important;
+}
+
+a {
+  color: var(--vp-c-accent);
+}
+
+/* subtle card accent */
+.vp-theme-default-content {
+  --card-border-color: rgba(30,136,255,0.08);
+}

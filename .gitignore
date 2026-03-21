@@ -23,3 +23,98 @@
 
 # Ignore Gemfile.lock files for Rails main branch.
 /gemfiles/rails_main*.gemfile.lock
+
+/docs/.vitepress/cache
+
+## Gemfiles
+gemfiles/*.lock
+gemfiles/vendor/
+
+## Tests
+test/log
+test/dummy/log
+test/tmp
+
+
+### `bundle gem` defaults
+
+*.gem
+*.rbc
+.bundle
+.byebug_history
+.config
+.yardoc
+Gemfile.lock
+InstalledFiles
+_yardoc
+coverage
+doc/
+lib/bundler/man
+pkg
+rdoc
+spec/reports
+test/tmp
+test/version_tmp
+tmp
+
+
+### Ruby version managers
+/.rvmrc
+/.ruby-version
+/.ruby-gemset
+
+### gem build
+
+*.gem
+pkg/
+
+### bundler
+
+/.bundle
+/vendor/bundle
+
+### Mess files
+
+.~lock.*
+.tmp*
+**.orig
+
+
+### Editors meta-data
+
+## IntelliJ IDEA / RubyMine
+*.iml
+*.ipr
+*.iws
+.idea/
+
+## Eclipse project management files
+.buildpath
+.loadpath
+.project
+.settings/*
+.externalToolBuilders/*
+
+## Textmate
+*.tmproj
+*.tmproject
+tmtags
+
+# SublimeText project files
+/*.sublime-project
+*.sublime-workspace
+
+### OS temporary files
+
+## Mac OS X
+.DS_Store
+._*
+# Files that might appear on external disk
+.Spotlight-V100
+.Trashes
+
+## Windows
+Thumbs.db
+
+## Linux
+*~
