@@ -20,6 +20,34 @@ Examples:
 ./bin/iconmap pin some-package/icons/logo.svg another-package/icons/x.svg
 ```
 
+Real example — Font Awesome GitHub brand icon
+
+```bash
+# pin the latest
+./bin/iconmap pin @fortawesome/fontawesome-free/svgs/brands/github.svg
+
+# pin a specific version
+./bin/iconmap pin @fortawesome/fontawesome-free@6.7.0/svgs/brands/github.svg
+```
+
+The vendored file will appear in `vendor/icons/` with a flattened filename, for example:
+
+```
+@fortawesome--fontawesome-free--svgs--brands--github.svg
+```
+
+Recommended: render the SVG inline using the `inline_svg` gem (https://github.com/jamesmartin/inline_svg):
+
+```erb
+<%= inline_svg_tag '@fortawesome--fontawesome-free--svgs--brands--github.svg', class: 'icon' %>
+```
+
+Or reference via the asset pipeline:
+
+```ruby
+image_tag asset_path('@fortawesome--fontawesome-free--svgs--brands--github.svg'), alt: 'GitHub'
+```
+
 ## unpin
 
 ```bash

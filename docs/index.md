@@ -11,3 +11,25 @@ Quick facts:
 - Runtime API: `Rails.application.iconmap`
 
 See the Installation and CLI docs for common tasks (pin, unpin, update, pristine, audit).
+
+Example — Font Awesome GitHub icon
+
+```bash
+# pin the latest
+./bin/iconmap pin @fortawesome/fontawesome-free/svgs/brands/github.svg
+
+# pin a specific version
+./bin/iconmap pin @fortawesome/fontawesome-free@6.7.0/svgs/brands/github.svg
+```
+
+After pinning, the vendored file will be available in `vendor/icons/` with a flattened filename such as:
+
+```
+@fortawesome--fontawesome-free--svgs--brands--github.svg
+```
+
+Recommended: render the SVG inline using the `inline_svg` gem:
+
+```erb
+<%= inline_svg_tag '@fortawesome--fontawesome-free--svgs--brands--github.svg', class: 'icon' %>
+```
