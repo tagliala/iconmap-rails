@@ -14,6 +14,9 @@ class CommandsTest < ActiveSupport::TestCase
     @tmpdir = Dir.mktmpdir
     FileUtils.cp_r("#{__dir__}/dummy", @tmpdir)
     Dir.chdir("#{@tmpdir}/dummy")
+    FileUtils.mkdir_p('bin')
+    FileUtils.cp("#{__dir__}/../lib/install/bin/iconmap", 'bin/iconmap')
+    File.chmod(0o755, 'bin/iconmap')
   end
 
   teardown do
