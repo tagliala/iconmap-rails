@@ -42,7 +42,18 @@ module Iconmap
 
     initializer 'iconmap.assets' do |app|
       if app.config.respond_to?(:assets)
-        app.config.assets.paths << Rails.root.join('vendor/icons')
+        # When Sprockets and Propshaft are both present the asset paths
+        # can contain framework-specific objects. To avoid passing non-string
+        # values into Sprockets internals (which call File.expand_path) make
+        # sure to push a plain string for Sprockets. Propshaft accepts
+        # Pathname values, so prefer that when only Propshaft is available.
+        path = Rails.root.join('vendor/icons')
+
+        app.config.assets.paths << if defined?(Sprockets)
+                                     path.to_s
+                                   else
+                                     path
+                                   end
       end
     end
   end
