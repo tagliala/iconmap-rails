@@ -106,7 +106,13 @@ class Iconmap::Commands < Thor
 
   desc 'packages', 'Print out icons with version numbers'
   def packages
-    puts(npm.packages_with_versions.map { |x| x.join(' ') })
+    # Print each package only once (multiple pins may reference the same npm package)
+    seen = {}
+    npm.packages_with_versions.each do |package, version, _|
+      seen[package] ||= version
+    end
+
+    puts(seen.map { |package, version| "#{package} #{version}" })
   end
 
   private
