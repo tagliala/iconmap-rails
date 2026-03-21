@@ -92,6 +92,38 @@ image_tag asset_path('@fortawesome--fontawesome-free--svgs--brands--github.svg')
 
 Because `vendor/icons` is added to the app's asset paths the vendored SVGs are available to `asset_path`, `image_tag`, `stylesheet_link_tag`, etc.
 
+Real example — Font Awesome GitHub brand icon
+
+1. Pin the latest Font Awesome GitHub brand SVG:
+
+```bash
+./bin/iconmap pin @fortawesome/fontawesome-free/svgs/brands/github.svg
+```
+
+2. Or pin a specific version (example uses 6.7.0):
+
+```bash
+./bin/iconmap pin @fortawesome/fontawesome-free@6.7.0/svgs/brands/github.svg
+```
+
+The vendored file will be written to `vendor/icons/` with a flattened name, for example:
+
+```
+@fortawesome--fontawesome-free--svgs--brands--github.svg
+```
+
+Because `vendor/icons` is added to the Rails asset paths you can reference the file from views. For inline SVG rendering, we recommend using the `inline_svg` gem (https://github.com/jamesmartin/inline_svg). Example ERB:
+
+```erb
+<%= inline_svg_tag '@fortawesome--fontawesome-free--svgs--brands--github.svg', class: 'icon' %>
+```
+
+Or using asset helpers directly:
+
+```ruby
+image_tag asset_path('@fortawesome--fontawesome-free--svgs--brands--github.svg'), alt: 'GitHub'
+```
+
 ### Unpinning icons
 
 Remove an icon and its vendored file:
