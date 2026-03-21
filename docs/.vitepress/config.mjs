@@ -7,7 +7,7 @@ const __dirname = dirname(__filename)
 export default {
   title: 'Iconmap for Rails',
   description: 'Vendor SVG icons from npm packages and serve them via Rails',
-  base: '/',
+  base: '/importmap-rails/',
   head: [['meta', { name: 'theme-color', content: '#1e88ff' }]],
   themeConfig: {
     siteTitle: 'Iconmap for Rails',
