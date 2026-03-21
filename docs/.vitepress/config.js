@@ -11,7 +11,7 @@ export default {
   head: [['meta', { name: 'theme-color', content: '#1e88ff' }]],
   themeConfig: {
     siteTitle: 'Iconmap for Rails',
-    logo: '/logo.png',
+    logo: '/logo.svg',
     nav: [
       { text: 'Guide', link: '/' },
       { text: 'CLI', link: '/cli' },
