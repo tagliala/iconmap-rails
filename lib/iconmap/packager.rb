@@ -21,7 +21,7 @@ class Iconmap::Packager
 
   # Parse an icon argument like "@fortawesome/fontawesome-free@7.0.0/svgs/brands/github.svg"
   # into { package:, path:, version: }
-  def parse_icon_path(arg)
+  def parse_icon_path(arg) # rubocop:disable Metrics/MethodLength
     if arg.start_with?('@')
       # Scoped package: @scope/name@version/path or @scope/name/path
       scope_and_rest = arg[1..] # remove leading @
