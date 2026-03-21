@@ -13,3 +13,8 @@
 ```
 
 The binstub is copied from the gem's install template and invokes the CLI commands that manage pins and vendored assets.
+
+Notes:
+
+- The installer will create `vendor/icons/` if it does not exist; you can commit the directory and vendored SVGs to your repository to avoid requiring the installer on CI.
+- The `bin/iconmap` binstub is a thin wrapper; running it from the project root (e.g. `./bin/iconmap pin ...`) is the recommended workflow.

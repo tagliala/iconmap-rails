@@ -12,6 +12,14 @@ Pin icons (single or multiple):
 
 If you include `@<version>` in the package name, that version is used. Otherwise, Iconmap resolves the latest version via jsdelivr.
 
+Examples:
+
+```bash
+./bin/iconmap pin @fortawesome/fontawesome-free/svgs/brands/github.svg
+./bin/iconmap pin @fortawesome/fontawesome-free@6.7.0/svgs/brands/github.svg
+./bin/iconmap pin some-package/icons/logo.svg another-package/icons/x.svg
+```
+
 ## unpin
 
 ```bash
@@ -19,6 +27,8 @@ If you include `@<version>` in the package name, that version is used. Otherwise
 ```
 
 Removes the pin and deletes the vendored file.
+
+Note: `unpin` only removes the vendored SVG matching the pin and the pin line in `config/iconmap.rb`; it does not modify other pins that reference the same npm package.
 
 ## outdated
 
@@ -28,6 +38,8 @@ Removes the pin and deletes the vendored file.
 
 Checks the registry/CDN for newer package versions and prints a table of outdated icons.
 
+Exit codes: 0 when nothing is outdated, 1 when at least one pinned icon is outdated, 2 on fatal errors.
+
 ## update
 
 ```bash
@@ -35,6 +47,8 @@ Checks the registry/CDN for newer package versions and prints a table of outdate
 ```
 
 Updates all outdated pins: downloads new files and updates `config/iconmap.rb`.
+
+You can also update a single pin by passing it explicitly, e.g. `./bin/iconmap update @fortawesome/fontawesome-free/svgs/brands/github.svg`.
 
 ## pristine
 
@@ -44,6 +58,8 @@ Updates all outdated pins: downloads new files and updates `config/iconmap.rb`.
 
 Re-downloads every pinned icon from the CDN and replaces vendored files.
 
+Useful when vendored files were omitted from source control or when switching branches with different pins.
+
 ## audit
 
 ```bash
@@ -52,6 +68,8 @@ Re-downloads every pinned icon from the CDN and replaces vendored files.
 
 Performs a security audit against the npm advisories API for the pinned package versions.
 
+The command exits with status 1 if vulnerabilities are found; read the printed table for details on severity and affected versions.
+
 ## packages
 
 ```bash
@@ -59,3 +77,5 @@ Performs a security audit against the npm advisories API for the pinned package 
 ```
 
 Lists all pinned packages and their pinned versions.
+
+Output format: `<package> <resolved-version> <pin-path>` per line, which makes it easy to parse in scripts.

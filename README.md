@@ -15,27 +15,40 @@ This creates:
 - `vendor/icons/` — where vendored SVG files are stored
 - `bin/iconmap` — CLI for managing icons
 
+Tip: the `bin/iconmap` binstub is safe to commit to your app. Run it from the project root (for example `./bin/iconmap pin ...`).
+
 ## How it works
 
-Iconmap for Rails uses a pin-based system to manage SVG icons from npm packages:
+Iconmap uses a simple pin-based system to vendor single SVG files from npm packages.
 
-1. **Pin an icon**: When you pin an icon (for example, `@fortawesome/fontawesome-free/svgs/brands/github.svg`), the gem:
-   - Parses the package name, optional version, and icon path
-   - Resolves the npm package version via the jsdelivr data API (unless you pinned an explicit version)
+1. Pin an icon (examples below). The CLI parses the package name, optional version, and icon path, then:
+   - Resolves the package version via the jsdelivr data API when no explicit version is given
    - Downloads the SVG from `https://cdn.jsdelivr.net/npm/<package>@<version>/<path>`
-   - Saves it to `vendor/icons/` with a flat filename (slashes replaced by `--`)
-   - Adds or updates a `pin` line in `config/iconmap.rb` with the resolved version
+   - Writes the file to `vendor/icons/` using a flat filename derived from the package/path (slashes replaced with `--`)
+   - Appends or updates a `pin` line in `config/iconmap.rb` with the resolved version comment
 
-2. **Serve icons**: The `vendor/icons/` directory is added to the Rails asset paths, so icons are served as normal static assets.
+2. Serve icons: `vendor/icons/` is added to the Rails asset paths so vendored SVGs are available via the normal Rails asset helpers.
 
-A pin in `config/iconmap.rb` looks like:
+Pin syntax examples (CLI usage shown below):
+
+```bash
+./bin/iconmap pin @fortawesome/fontawesome-free/svgs/brands/github.svg
+./bin/iconmap pin @fortawesome/fontawesome-free@6.7.0/svgs/brands/github.svg
+./bin/iconmap pin some-package/icons/logo.svg
+```
+
+In `config/iconmap.rb` a pin looks like:
 
 ```ruby
 pin '@fortawesome/fontawesome-free/svgs/brands/github.svg' # @6.7.2
 ```
 
-The SVG file is downloaded and stored as a flat file in `vendor/icons/` (for example,
-`@fortawesome--fontawesome-free--svgs--brands--github.svg`), ready to be served by the asset pipeline.
+The downloaded filename mirrors the pin but with path separators replaced by `--`, for example:
+`@fortawesome--fontawesome-free--svgs--brands--github.svg` in `vendor/icons/`.
+
+Notes:
+- Scoped package names (those starting with `@`) are preserved in the filename and mapping.
+- If jsdelivr fails to resolve a package version the CLI will leave the pin without a version comment and print a helpful error.
 
 ## Usage
 
@@ -69,6 +82,15 @@ After pinning, you will see lines like this in `config/iconmap.rb`:
 pin '@fortawesome/fontawesome-free/svgs/brands/github.svg' # @6.7.2
 pin '@fortawesome/fontawesome-free/svgs/solid/heart.svg'   # @6.7.2
 ```
+
+Referencing vendored icons in Rails views:
+
+```ruby
+# use asset_path or image_tag with the vendored filename
+image_tag asset_path('@fortawesome--fontawesome-free--svgs--brands--github.svg')
+```
+
+Because `vendor/icons` is added to the app's asset paths the vendored SVGs are available to `asset_path`, `image_tag`, `stylesheet_link_tag`, etc.
 
 ### Unpinning icons
 
@@ -123,6 +145,8 @@ Re-download every pinned icon from jsdelivr, regardless of version:
 
 This is useful after checking out a new branch, restoring from backup, or when vendored files may be corrupted.
 
+If you commit the vendored files to your repository you will not need to run `pristine` after a fresh checkout; run it only when files are missing or you suspect corruption.
+
 ### Security audit
 
 Check the npm registry for known security vulnerabilities in your pinned packages:
@@ -174,6 +198,8 @@ The icon map file uses `pin` directives to define vendored icons:
 ```
 
 Iconmap does not currently support additional pin options (like `preload:` or `to:`) – every pin represents a single SVG at a specific version.
+
+If you need to combine multiple maps (for engines or shared gems) see the "Composing icon maps" section below.
 
 ### Cache sweeping
 
