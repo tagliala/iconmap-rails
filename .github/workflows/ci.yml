@@ -40,13 +40,20 @@ jobs:
             channel: 'experimental'
 
           - ruby-version: "ruby-head"
+            gemfile: gemfiles/rails_8_1_propshaft.gemfile
+            channel: 'experimental'
+          - ruby-version: "ruby-head"
+            gemfile: gemfiles/rails_8_1_sprockets.gemfile
+            channel: 'experimental'
+
+          - ruby-version: "ruby-head"
             gemfile: gemfiles/rails_main_propshaft.gemfile
             channel: 'experimental'
           - ruby-version: "ruby-head"
             gemfile: gemfiles/rails_main_sprockets.gemfile
             channel: 'experimental'
 
-    name: ${{ format('Tests (Ruby {0}, {1})', matrix.ruby-version, matrix.gemfile) }}
+    name: ${{ format('Tests (Ruby {0}, {1} - {2})', matrix.ruby-version, matrix.gemfile, matrix.channel) }}
     runs-on: ubuntu-latest
 
     env:

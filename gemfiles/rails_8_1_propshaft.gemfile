@@ -2,7 +2,7 @@
 
 source "https://rubygems.org"
 
-gem "rails", "~> 7.1.0"
+gem "rails", "~> 8.1.0"
 gem "sprockets-rails"
 gem "sqlite3", "~> 2.5"
 gem "propshaft"
@@ -19,6 +19,7 @@ group :development do
 end
 
 group :test do
+  gem "minitest-mock"
   gem "stimulus-rails"
   gem "turbo-rails"
   gem "byebug"

@@ -20,6 +20,16 @@ appraise 'rails_8_0_propshaft' do
   gem 'propshaft'
 end
 
+appraise 'rails_8_1_sprockets' do
+  gem 'rails', '~> 8.1.0'
+  gem 'sprockets-rails'
+end
+
+appraise 'rails_8_1_propshaft' do
+  gem 'rails', '~> 8.1.0'
+  gem 'propshaft'
+end
+
 appraise 'rails_main_sprockets' do
   gem 'rails', github: 'rails/rails', branch: 'main'
   gem 'sprockets-rails'
