@@ -13,6 +13,7 @@ class Iconmap::NpmTest < ActiveSupport::TestCase
     assert_equal 1, packages.size
     assert_equal '@fortawesome/fontawesome-free', packages[0][0]
     assert_equal '6.0.0', packages[0][1]
+    assert_equal '@fortawesome/fontawesome-free/svgs/brands/github.svg', packages[0][2]
   end
 
   test 'packages_with_versions with single quotes' do
@@ -22,6 +23,7 @@ class Iconmap::NpmTest < ActiveSupport::TestCase
     assert_equal 1, packages.size
     assert_equal '@fortawesome/fontawesome-free', packages[0][0]
     assert_equal '6.0.0', packages[0][1]
+    assert_equal '@fortawesome/fontawesome-free/svgs/brands/github.svg', packages[0][2]
   end
 
   test 'packages_with_versions without CDN' do
@@ -31,6 +33,7 @@ class Iconmap::NpmTest < ActiveSupport::TestCase
     assert_equal 1, packages.size
     assert_equal '@fortawesome/fontawesome-free', packages[0][0]
     assert_equal '6.0.0', packages[0][1]
+    assert_equal '@fortawesome/fontawesome-free/svgs/brands/github.svg', packages[0][2]
   end
 
   test 'successful outdated packages with mock' do
@@ -41,7 +44,7 @@ class Iconmap::NpmTest < ActiveSupport::TestCase
     outdated_packages = @npm.outdated_packages
 
     assert_equal 1, outdated_packages.size
-    assert_equal '@fortawesome/fontawesome-free', outdated_packages[0].name
+    assert_equal '@fortawesome/fontawesome-free/svgs/brands/github.svg', outdated_packages[0].icon_path
     assert_equal '6.0.0', outdated_packages[0].current_version
     assert_equal '7.0.0', outdated_packages[0].latest_version
 
@@ -56,7 +59,7 @@ class Iconmap::NpmTest < ActiveSupport::TestCase
     outdated_packages = @npm.outdated_packages
 
     assert_equal 1, outdated_packages.size
-    assert_equal '@fortawesome/fontawesome-free', outdated_packages[0].name
+    assert_equal '@fortawesome/fontawesome-free/svgs/brands/github.svg', outdated_packages[0].icon_path
     assert_equal 'Response error', outdated_packages[0].error
 
     jsdelivr.verify

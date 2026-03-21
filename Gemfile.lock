@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    iconmap-rails (0.0.1)
+    iconmap-rails (0.1.0)
       actionpack (>= 7.2.0)
       activesupport (>= 7.2.0)
       railties (>= 7.2.0)

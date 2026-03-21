@@ -6,8 +6,11 @@ require 'json'
 require_relative 'jsdelivr'
 
 class Iconmap::Npm
-  Error     = Class.new(StandardError)
-  HTTPError = Class.new(Error)
+  class Error < StandardError
+  end
+
+  class HTTPError < Error
+  end
 
   singleton_class.attr_accessor :base_uri
   self.base_uri = URI('https://registry.npmjs.org')
@@ -17,8 +20,8 @@ class Iconmap::Npm
   end
 
   def outdated_packages
-    packages_with_versions.each.with_object([]) do |(package, current_version), outdated_packages|
-      outdated_package = OutdatedPackage.new(name: package, current_version: current_version)
+    packages_with_versions.each.with_object([]) do |(package, current_version, icon_path), outdated_packages|
+      outdated_package = OutdatedPackage.new(package: package, icon_path: icon_path, current_version: current_version)
 
       latest_version = jsdelivr.resolve_version(package)
 
@@ -31,7 +34,7 @@ class Iconmap::Npm
       end
 
       outdated_packages << outdated_package
-    end.sort_by(&:name)
+    end.sort_by(&:icon_path)
   end
 
   def vulnerable_packages
@@ -48,13 +51,13 @@ class Iconmap::Npm
   def packages_with_versions
     iconmap.scan(/^pin ['"]([^'"]+)['"].*#\s*@(\S+)/).map do |package_with_path, version|
       package = extract_package_name(package_with_path)
-      [package, version]
-    end.uniq
+      [package, version, package_with_path]
+    end
   end
 
   private
 
-  OutdatedPackage   = Struct.new(:name, :current_version, :latest_version, :error, keyword_init: true)
+  OutdatedPackage   = Struct.new(:package, :icon_path, :current_version, :latest_version, :error, keyword_init: true)
   VulnerablePackage = Struct.new(:name, :severity, :vulnerable_versions, :vulnerability, keyword_init: true)
 
   def extract_package_name(package_with_path)
@@ -84,7 +87,7 @@ class Iconmap::Npm
     uri = self.class.base_uri.dup
     uri.path = '/-/npm/v1/security/advisories/bulk'
 
-    body = packages_with_versions.each.with_object({}) do |(package, version), data|
+    body = packages_with_versions.each.with_object({}) do |(package, version, _icon_path), data|
       data[package] ||= []
       data[package] << version
     end

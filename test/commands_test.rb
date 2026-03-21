@@ -26,6 +26,20 @@ class CommandsTest < ActiveSupport::TestCase
     assert_includes out, 'No outdated'
   end
 
+  test 'outdated command shows full icon paths in table' do
+    File.write('config/iconmap.rb', "pin '@fortawesome/fontawesome-free/svgs/brands/github.svg' # @6.0.0\n")
+
+    mock = Minitest::Mock.new
+    mock.expect :resolve_version, '7.2.0', ['@fortawesome/fontawesome-free']
+    Iconmap::Jsdelivr.stub(:new, mock) do
+      out, _err = run_iconmap_command('outdated')
+
+      assert_includes out, '@fortawesome/fontawesome-free/svgs/brands/github.svg'
+      assert_includes out, '|'
+      assert_includes out, 'outdated'
+    end
+  end
+
   test 'pin command pins an icon' do
     mock_jsdelivr = build_github_jsdelivr_mock
 
@@ -38,6 +52,7 @@ class CommandsTest < ActiveSupport::TestCase
     assert_includes File.read('config/iconmap.rb'), "pin '@fortawesome/fontawesome-free/svgs/brands/github.svg'"
 
     vendored_file = Dir.glob('vendor/icons/@fortawesome--fontawesome-free--svgs--brands--github.svg').first
+
     assert vendored_file, 'Vendored SVG file should exist'
   end
 
@@ -54,7 +69,7 @@ class CommandsTest < ActiveSupport::TestCase
   private
 
   def run_iconmap_command(command, *args)
-    capture_io { Iconmap::Commands.start([command, *args]) }
+    capture_subprocess_io { system('bin/iconmap', command, *args) }
   end
 
   def build_github_jsdelivr_mock

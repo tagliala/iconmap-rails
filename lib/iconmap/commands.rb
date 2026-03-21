@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'thor'
+require 'active_support/core_ext/string/inflections'
 require_relative 'packager'
 require_relative 'npm'
 
@@ -46,7 +47,7 @@ class Iconmap::Commands < Thor
     npm.packages_with_versions.each do |package, version|
       # Find all pins for this package to get full paths
       iconmap_content = File.read('config/iconmap.rb')
-      iconmap_content.scan(/^pin ['"]#{Regexp.escape(package)}\/([^'"]+)['"].*#\s*@#{Regexp.escape(version)}/).each do |path,|
+      iconmap_content.scan(%r{^pin ['"]#{Regexp.escape(package)}/([^'"]+)['"].*#\s*@#{Regexp.escape(version)}}).each do |path,|
         package_with_path = "#{package}/#{path}"
         url = Iconmap::Jsdelivr.new.download_url(package, version, path)
         puts %(Downloading "#{package_with_path}" to #{packager.vendor_path}/#{packager.vendored_filename(package, path)} from #{url})
@@ -80,7 +81,7 @@ class Iconmap::Commands < Thor
   def outdated
     if (outdated_packages = npm.outdated_packages).any?
       table = [%w[Icon Current Latest]]
-      outdated_packages.each { |p| table << [p.name, p.current_version, p.latest_version || p.error] }
+      outdated_packages.each { |p| table << [p.icon_path, p.current_version, p.latest_version || p.error] }
 
       puts_table(table)
       packages = 'icon'.pluralize(outdated_packages.size)
@@ -95,12 +96,8 @@ class Iconmap::Commands < Thor
   desc 'update', 'Update outdated icon pins'
   def update
     if (outdated_packages = npm.outdated_packages).any?
-      # Re-pin each outdated package's icons with latest version
-      iconmap_content = File.read('config/iconmap.rb')
       outdated_packages.each do |pkg|
-        iconmap_content.scan(/^pin ['"]#{Regexp.escape(pkg.name)}\/([^'"]+)['"]/).each do |path,|
-          pin("#{pkg.name}/#{path}")
-        end
+        pin(pkg.icon_path)
       end
     else
       puts 'No outdated icons found'
@@ -136,3 +133,5 @@ class Iconmap::Commands < Thor
     end
   end
 end
+
+Iconmap::Commands.start(ARGV)

@@ -5,7 +5,7 @@ require 'iconmap/npm'
 require 'minitest/mock'
 
 class Iconmap::NpmIntegrationTest < ActiveSupport::TestCase
-  AUDIT_IS_SVG     = File.read(File.expand_path('fixtures/files/api/npm_audit_is_svg.json', __dir__))
+  AUDIT_IS_SVG = File.read(File.expand_path('fixtures/files/api/npm_audit_is_svg.json', __dir__))
   AUDIT_FORTAWESOME = File.read(File.expand_path('fixtures/files/api/npm_audit_fortawesome.json', __dir__))
 
   test 'outdated packages' do
@@ -18,7 +18,7 @@ class Iconmap::NpmIntegrationTest < ActiveSupport::TestCase
     outdated = npm.outdated_packages
 
     assert_equal 1, outdated.size
-    assert_equal '@fortawesome/fontawesome-free', outdated[0].name
+    assert_equal '@fortawesome/fontawesome-free/svgs/brands/github.svg', outdated[0].icon_path
     assert_equal '6.0.0', outdated[0].current_version
     assert_equal '7.2.0', outdated[0].latest_version
 
@@ -60,6 +60,7 @@ class Iconmap::NpmIntegrationTest < ActiveSupport::TestCase
     npm = Iconmap::Npm.new(file_fixture('outdated_icon_map.rb'))
 
     response = Struct.new(:code, :body).new('200', AUDIT_FORTAWESOME)
+
     npm.stub(:post_json, response) do
       assert_empty npm.vulnerable_packages
     end
