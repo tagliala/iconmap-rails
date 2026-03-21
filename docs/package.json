@@ -2,12 +2,13 @@
   "name": "iconmap-docs",
   "private": true,
   "type": "module",
+  "packageManager": "bun@1",
   "scripts": {
     "dev": "vitepress dev docs",
     "build": "vitepress build docs",
-    "serve": "vitepress serve docs/.vitepress/dist"
+    "serve": "vitepress preview docs/.vitepress/dist"
   },
   "devDependencies": {
-    "vitepress": "^1.0.0"
+    "vitepress": "2.0.0-alpha.17"
   }
 }
