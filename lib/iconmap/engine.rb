@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative 'map'
+require_relative 'reloader'
 
 # Use Rails.application.iconmap to access the map
 Rails::Application.send(:attr_accessor, :iconmap)
