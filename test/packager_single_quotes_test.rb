@@ -22,6 +22,7 @@ class Iconmap::PackagerSingleQuotesTest < ActiveSupport::TestCase
     Dir.mktmpdir do |vendor_dir|
       packager = Iconmap::Packager.new(@config.path, vendor_path: vendor_dir)
       packager.remove('@fortawesome/fontawesome-free/svgs/brands/github.svg')
+
       assert_not packager.packaged?('@fortawesome/fontawesome-free/svgs/brands/github.svg')
     end
   end

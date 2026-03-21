@@ -20,17 +20,20 @@ class IconmapTest < ActiveSupport::TestCase
 
   test 'pin returns a MappedFile' do
     mapped = @iconmap.packages['@fortawesome/fontawesome-free/svgs/brands/github.svg']
+
     assert_equal '@fortawesome/fontawesome-free/svgs/brands/github.svg', mapped.name
   end
 
   test 'draw with block' do
     iconmap = Iconmap::Map.new.draw { pin 'test/icon.svg' }
+
     assert_includes iconmap.packages, 'test/icon.svg'
   end
 
   test 'draw with file path' do
     file = file_fixture('outdated_icon_map.rb')
     iconmap = Iconmap::Map.new.draw(file)
+
     assert_includes iconmap.packages, '@fortawesome/fontawesome-free/svgs/brands/github.svg'
   end
 
@@ -44,12 +47,14 @@ class IconmapTest < ActiveSupport::TestCase
 
   test 'draw with nonexistent path does not raise' do
     iconmap = Iconmap::Map.new.draw('/nonexistent/path.rb')
+
     assert_empty iconmap.packages
   end
 
   test 'pin clears cache' do
     @iconmap.instance_variable_set(:@cache, { 'test' => 'value' })
     @iconmap.pin 'new/icon.svg'
+
     assert_empty @iconmap.instance_variable_get(:@cache)
   end
 

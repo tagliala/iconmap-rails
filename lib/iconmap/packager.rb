@@ -6,14 +6,17 @@ require 'json'
 require_relative 'jsdelivr'
 
 class Iconmap::Packager
-  Error        = Class.new(StandardError)
-  HTTPError    = Class.new(Error)
+  class Error < StandardError
+  end
+
+  class HTTPError < Error
+  end
 
   attr_reader :vendor_path
 
   def initialize(iconmap_path = 'config/iconmap.rb', vendor_path: 'vendor/icons')
     @iconmap_path = Pathname.new(iconmap_path)
-    @vendor_path  = Pathname.new(vendor_path)
+    @vendor_path = Pathname.new(vendor_path)
   end
 
   # Parse an icon argument like "@fortawesome/fontawesome-free@7.0.0/svgs/brands/github.svg"

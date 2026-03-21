@@ -12,6 +12,9 @@ class Iconmap::Npm
   class HTTPError < Error
   end
 
+  OutdatedPackage   = Struct.new(:package, :icon_path, :current_version, :latest_version, :error)
+  VulnerablePackage = Struct.new(:name, :severity, :vulnerable_versions, :vulnerability)
+
   singleton_class.attr_accessor :base_uri
   self.base_uri = URI('https://registry.npmjs.org')
 
@@ -56,9 +59,6 @@ class Iconmap::Npm
   end
 
   private
-
-  OutdatedPackage   = Struct.new(:package, :icon_path, :current_version, :latest_version, :error, keyword_init: true)
-  VulnerablePackage = Struct.new(:name, :severity, :vulnerable_versions, :vulnerability, keyword_init: true)
 
   def extract_package_name(package_with_path)
     if package_with_path.start_with?('@')

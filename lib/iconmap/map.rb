@@ -7,6 +7,8 @@ class Iconmap::Map
 
   class InvalidFile < StandardError; end
 
+  MappedFile = Struct.new(:name)
+
   def initialize
     @packages = {}
     @cache = {}
@@ -47,8 +49,6 @@ class Iconmap::Map
   end
 
   private
-
-  MappedFile = Struct.new(:name, keyword_init: true)
 
   def clear_cache
     @cache.clear

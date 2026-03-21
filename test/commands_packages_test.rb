@@ -24,7 +24,7 @@ class CommandsPackagesTest < ActiveSupport::TestCase
 
       lines = out.split("\n").reject(&:empty?)
       # ensure each package appears only once
-      packages = lines.map { |l| l.split(' ').first }
+      packages = lines.map { |l| l.split.first }
 
       assert_equal packages.uniq, packages
     end

@@ -28,7 +28,7 @@ class IconmapReloaderTest < ActiveSupport::TestCase
       # Cleanup
       # restore original paths
       Rails.application.config.iconmap.paths = Rails.application.config.iconmap.paths.reject { |p| p.to_s == temp_path.to_s }
-      File.delete(temp_path) if File.exist?(temp_path)
+      FileUtils.rm_f(temp_path)
     end
   end
 end

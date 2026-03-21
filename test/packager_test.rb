@@ -16,6 +16,7 @@ class Iconmap::PackagerTest < ActiveSupport::TestCase
 
   test 'parse_icon_path with scoped package and version' do
     result = @packager.parse_icon_path('@fortawesome/fontawesome-free@7.0.0/svgs/brands/github.svg')
+
     assert_equal '@fortawesome/fontawesome-free', result[:package]
     assert_equal 'svgs/brands/github.svg', result[:path]
     assert_equal '7.0.0', result[:version]
@@ -23,6 +24,7 @@ class Iconmap::PackagerTest < ActiveSupport::TestCase
 
   test 'parse_icon_path with scoped package without version' do
     result = @packager.parse_icon_path('@fortawesome/fontawesome-free/svgs/brands/instagram.svg')
+
     assert_equal '@fortawesome/fontawesome-free', result[:package]
     assert_equal 'svgs/brands/instagram.svg', result[:path]
     assert_nil result[:version]
@@ -30,6 +32,7 @@ class Iconmap::PackagerTest < ActiveSupport::TestCase
 
   test 'parse_icon_path with unscoped package and version' do
     result = @packager.parse_icon_path('lucide@1.0.0/icons/heart.svg')
+
     assert_equal 'lucide', result[:package]
     assert_equal 'icons/heart.svg', result[:path]
     assert_equal '1.0.0', result[:version]
@@ -37,6 +40,7 @@ class Iconmap::PackagerTest < ActiveSupport::TestCase
 
   test 'parse_icon_path with unscoped package without version' do
     result = @packager.parse_icon_path('lucide/icons/heart.svg')
+
     assert_equal 'lucide', result[:package]
     assert_equal 'icons/heart.svg', result[:path]
     assert_nil result[:version]
@@ -116,9 +120,11 @@ class Iconmap::PackagerTest < ActiveSupport::TestCase
       packager.download('lucide', '1.0.0', 'icons/heart.svg')
 
       vendored_file = Pathname.new(vendor_dir).join('lucide--icons--heart.svg')
+
       assert_path_exists vendored_file
 
       content = File.read(vendored_file)
+
       assert_match %r{<!-- lucide/icons/heart\.svg@1\.0\.0 downloaded from .* -->}, content
       assert_includes content, '<svg>heart</svg>'
 

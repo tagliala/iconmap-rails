@@ -32,9 +32,11 @@ class Iconmap::PackagerIntegrationTest < ActiveSupport::TestCase
       assert_equal %(pin '@fortawesome/fontawesome-free/svgs/brands/github.svg' # @7.2.0), pin_line
 
       vendored_file = Pathname.new(vendor_dir).join('@fortawesome--fontawesome-free--svgs--brands--github.svg')
+
       assert_path_exists vendored_file
 
       content = File.read(vendored_file)
+
       assert_match %r{<!-- @fortawesome/fontawesome-free/svgs/brands/github\.svg@7\.2\.0 downloaded from .* -->}, content
       assert_includes content, '<svg'
 
@@ -59,6 +61,7 @@ class Iconmap::PackagerIntegrationTest < ActiveSupport::TestCase
       assert_equal %(pin '@fortawesome/fontawesome-free/svgs/brands/github.svg' # @6.5.0), pin_line
 
       vendored_file = Pathname.new(vendor_dir).join('@fortawesome--fontawesome-free--svgs--brands--github.svg')
+
       assert_path_exists vendored_file
 
       jsdelivr.verify
